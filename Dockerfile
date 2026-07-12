@@ -8,6 +8,8 @@ RUN mvn dependency:go-offline
 
 # Quellcode kopieren und bauen
 COPY src ./src
+COPY data ./data
+
 RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:23-jre
@@ -15,6 +17,7 @@ FROM eclipse-temurin:23-jre
 WORKDIR /app
 
 COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/data ./data
 
 EXPOSE 8080
 
