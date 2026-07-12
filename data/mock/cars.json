@@ -1,0 +1,32 @@
+[
+  {
+    "carId": "CAR-1001",
+    "provider": "Sixt",
+    "pickupLocation": "Barcelona Airport",
+    "returnLocation": "Barcelona Airport",
+    "vehicleClass": "Compact",
+    "brand": "VW Golf",
+    "transmission": "Automatic",
+    "fuel": "Petrol",
+    "doors": 5,
+    "airCondition": true,
+    "pricePerDay": 48.00,
+    "currency": "EUR",
+    "availableVehicles": 8
+  },
+  {
+    "carId": "CAR-1002",
+    "provider": "Avis",
+    "pickupLocation": "Barcelona Airport",
+    "returnLocation": "Barcelona Airport",
+    "vehicleClass": "SUV",
+    "brand": "BMW X1",
+    "transmission": "Automatic",
+    "fuel": "Hybrid",
+    "doors": 5,
+    "airCondition": true,
+    "pricePerDay": 82.00,
+    "currency": "EUR",
+    "availableVehicles": 3
+  }
+]

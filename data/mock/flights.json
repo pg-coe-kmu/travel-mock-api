@@ -1,0 +1,28 @@
+[
+  {
+    "flightId": "FL-1001",
+    "airline": "Lufthansa",
+    "flightNumber": "LH1812",
+    "departureAirport": "FRA",
+    "arrivalAirport": "BCN",
+    "departureTime": "2026-10-10T08:20:00",
+    "arrivalTime": "2026-10-10T10:30:00",
+    "travelClass": "Economy",
+    "price": 245.00,
+    "currency": "EUR",
+    "availableSeats": 18
+  },
+  {
+    "flightId": "FL-1002",
+    "airline": "Eurowings",
+    "flightNumber": "EW2520",
+    "departureAirport": "DUS",
+    "arrivalAirport": "BCN",
+    "departureTime": "2026-10-10T12:40:00",
+    "arrivalTime": "2026-10-10T14:55:00",
+    "travelClass": "Economy",
+    "price": 179.00,
+    "currency": "EUR",
+    "availableSeats": 6
+  }
+]
