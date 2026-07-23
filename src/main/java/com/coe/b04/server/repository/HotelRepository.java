@@ -18,12 +18,6 @@ public class HotelRepository {
         return hotels;
     }
 
-    public List<Hotel> findByCity(String city) {
-        return hotels.stream()
-                .filter(hotel -> hotel.getCity().equalsIgnoreCase(city))
-                .toList();
-    }
-
     /*
         * Find hotels by city and optional parameters: stars, roomType, maxPrice, and board.
         * If an optional parameter is null, it will be ignored in the filtering process.

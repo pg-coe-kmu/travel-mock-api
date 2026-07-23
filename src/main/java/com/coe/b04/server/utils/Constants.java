@@ -15,6 +15,7 @@ public final class Constants {
     public static final Path HOTELS_PATH = MOCK_DATA_PATH.resolve("hotels.json");
     public static final Path FLIGHTS_PATH = MOCK_DATA_PATH.resolve("flights.json");
     public static final Path CARS_PATH = MOCK_DATA_PATH.resolve("cars.json");
+    public static final Path AIRPORTS_PATH = MOCK_DATA_PATH.resolve("airports.json");
 }
 
 
