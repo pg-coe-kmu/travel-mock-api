@@ -19,10 +19,6 @@ public class HotelService {
         return hotelRepository.findAll();
     }
 
-    public List<Hotel> getHotelsByCity(String city) {
-        return hotelRepository.findByCity(city);
-    }
-
     public List<Hotel> search(String city, Integer stars, String roomType, Double maxPrice, String board) {
         return hotelRepository.findByCityAndOptionals(city, stars, roomType, maxPrice, board);
     }

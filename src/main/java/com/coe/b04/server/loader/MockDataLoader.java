@@ -1,15 +1,15 @@
 package com.coe.b04.server.loader;
 
+import com.coe.b04.server.model.Airport;
 import com.coe.b04.server.model.Car;
 import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.model.Hotel;
+import com.coe.b04.server.repository.AirportRepository;
 import com.coe.b04.server.repository.CarRepository;
 import com.coe.b04.server.repository.FlightRepository;
 import com.coe.b04.server.repository.HotelRepository;
-import com.coe.b04.server.utils.Constants;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -30,13 +30,15 @@ public class MockDataLoader {
     private final HotelRepository hotelRepository;
     private final FlightRepository flightRepository;
     private final CarRepository carRepository;
+    private final AirportRepository airportRepository;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public MockDataLoader(HotelRepository hotelRepository,  FlightRepository flightRepository, CarRepository carRepository) {
+    public MockDataLoader(HotelRepository hotelRepository, FlightRepository flightRepository, CarRepository carRepository, AirportRepository airportRepository) {
         this.hotelRepository = hotelRepository;
         this.flightRepository = flightRepository;
         this.carRepository = carRepository;
+        this.airportRepository = airportRepository;
     }
 
     @PostConstruct
@@ -46,6 +48,7 @@ public class MockDataLoader {
         hotelRepository.setHotels(loadMockData(HOTELS_PATH, Hotel[].class));
         flightRepository.setFlights(loadMockData(FLIGHTS_PATH, Flight[].class));
         carRepository.setCars(loadMockData(CARS_PATH, Car[].class));
+        airportRepository.setAirports(loadMockData(AIRPORTS_PATH, Airport[].class));
 
         log.info("Mock data loaded: {} hotels, {} flights, {} cars",
                 hotelRepository.getHotels().size(),

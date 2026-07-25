@@ -1,0 +1,77 @@
+[
+  {
+    "iata_code": "AMS",
+    "name": "Amsterdam Airport Schiphol",
+    "location": "Amsterdam"
+  },
+  {
+    "iata_code": "BCN",
+    "name": "Josep Tarradellas Barcelona-El Prat Airport",
+    "location": "Barcelona"
+  },
+  {
+    "iata_code": "BER",
+    "name": "Berlin Brandenburg Airport Willy Brandt",
+    "location": "Berlin"
+  },
+  {
+    "iata_code": "CDG",
+    "name": "Paris-Charles de Gaulle Airport",
+    "location": "Paris"
+  },
+  {
+    "iata_code": "CGN",
+    "name": "Köln/Bonn Airport Konrad Adenauer",
+    "location": "Köln/Bonn"
+  },
+  {
+    "iata_code": "DUS",
+    "name": "Düsseldorf Airport",
+    "location": "Düsseldorf"
+  },
+  {
+    "iata_code": "FCO",
+    "name": "Rome-Fiumicino International Airport Leonardo da Vinci",
+    "location": "Rom"
+  },
+  {
+    "iata_code": "FRA",
+    "name": "Frankfurt Airport",
+    "location": "Frankfurt am Main"
+  },
+  {
+    "iata_code": "HAM",
+    "name": "Hamburg Airport Helmut Schmidt",
+    "location": "Hamburg"
+  },
+  {
+    "iata_code": "LIS",
+    "name": "Humberto Delgado Airport",
+    "location": "Lissabon"
+  },
+  {
+    "iata_code": "MAD",
+    "name": "Adolfo Suárez Madrid-Barajas Airport",
+    "location": "Madrid"
+  },
+  {
+    "iata_code": "MUC",
+    "name": "Munich Airport Franz Josef Strauß",
+    "location": "München"
+  },
+  {
+    "iata_code": "STR",
+    "name": "Stuttgart Airport",
+    "location": "Stuttgart"
+  },
+  {
+    "iata_code": "VIE",
+    "name": "Vienna International Airport",
+    "location": "Wien"
+  },
+  {
+    "iata_code": "ZRH",
+    "name": "Zurich Airport",
+    "location": "Zürich"
+  }
+]
