@@ -1,5 +1,6 @@
 package com.coe.b04.server.model;
 
+import com.coe.b04.server.enums.TravelClass;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,7 +23,7 @@ public class Flight {
     private LocalDateTime departureTime;
     private LocalDateTime arrivalTime;
 
-    private String travelClass;
+    private TravelClass travelClass;
 
     private BigDecimal price;
     private String currency;
