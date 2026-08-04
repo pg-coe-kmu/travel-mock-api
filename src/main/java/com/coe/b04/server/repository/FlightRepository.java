@@ -19,11 +19,12 @@ public class FlightRepository {
 
     public List<Flight> getFlightsByDate(FlightRequest flightRequest) {
         return getFlightsByDefaultParams(
-                flightRequest.getOrigin(),
-                flightRequest.getDestination(),
+                flightRequest.getOriginIataCode(),
+                flightRequest.getDestinationIataCode(),
                 flightRequest.getNumberOfAdults(),
                 flightRequest.getNumberOfChildren(),
-                flightRequest.getTravelClass())
+                flightRequest.getTravelClass(),
+                flightRequest.getMaxPrice())
                 .stream()
                 .filter(flight -> flight.getDepartureTime().toLocalDate().equals(flightRequest.getDepartureDate()))
                 .toList();
@@ -31,23 +32,25 @@ public class FlightRepository {
 
     public List<Flight> getFlightsByRange(FlightRequest flightRequest) {
         return getFlightsByDefaultParams(
-                flightRequest.getOrigin(),
-                flightRequest.getDestination(),
+                flightRequest.getOriginIataCode(),
+                flightRequest.getDestinationIataCode(),
                 flightRequest.getNumberOfAdults(),
                 flightRequest.getNumberOfChildren(),
-                flightRequest.getTravelClass())
+                flightRequest.getTravelClass(),
+                flightRequest.getMaxPrice())
                 .stream()
                 .filter(flight -> !flight.getDepartureTime().toLocalDate().isBefore(flightRequest.getDepartureDateFrom()))
                 .filter(flight -> !flight.getDepartureTime().toLocalDate().isAfter(flightRequest.getDepartureDateTo()))
                 .toList();
     }
 
-    private List<Flight> getFlightsByDefaultParams(String departureAirportCode, String arrivalAirportCode, Integer numberOfAdults, Integer numberOfChildren, TravelClass travelClass) {
+    private List<Flight> getFlightsByDefaultParams(String departureAirportCode, String arrivalAirportCode, Integer numberOfAdults, Integer numberOfChildren, TravelClass travelClass, Double maxPrice) {
         return flights.stream()
                 .filter(flight -> flight.getDepartureAirport().equalsIgnoreCase(departureAirportCode))
                 .filter(flight -> flight.getArrivalAirport().equalsIgnoreCase(arrivalAirportCode))
                 .filter(flight -> flight.getAvailableSeats() >= sum(numberOfAdults, numberOfChildren))
                 .filter(flight -> travelClass == null || flight.getTravelClass() == travelClass)
+                .filter(flight -> maxPrice == null || flight.getPrice().doubleValue() <= maxPrice)
                 .toList();
     }
 }
