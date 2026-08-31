@@ -1,12 +1,14 @@
 package com.coe.b04.server.model;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.util.List;
 
 @Data
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Hotel {
@@ -14,17 +16,18 @@ public class Hotel {
     private String name;
     private String city;
     private String country;
+    private String address;
 
     private int stars;
 
-    private String roomType;
-    private String board;
+    private Rating rating;
 
-    private BigDecimal pricePerNight;
-    private String currency;
-
-    private int availableRooms;
+    private List<String> hotelAmenities;
 
     private String checkInTime;
     private String checkOutTime;
+
+    private String baseCurrency;
+
+    private List<RoomType> roomTypes;
 }
