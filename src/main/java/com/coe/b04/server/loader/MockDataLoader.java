@@ -1,7 +1,7 @@
 package com.coe.b04.server.loader;
 
 import com.coe.b04.server.model.Airport;
-import com.coe.b04.server.model.Car;
+import com.coe.b04.server.model.CarProvider;
 import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.model.Hotel;
 import com.coe.b04.server.repository.AirportRepository;
@@ -47,13 +47,13 @@ public class MockDataLoader {
 
         hotelRepository.setHotels(loadMockData(HOTELS_PATH, Hotel[].class));
         flightRepository.setFlights(loadMockData(FLIGHTS_PATH, Flight[].class));
-        carRepository.setCars(loadMockData(CARS_PATH, Car[].class));
+        carRepository.setProviders(loadMockData(CARS_PATH, CarProvider[].class));
         airportRepository.setAirports(loadMockData(AIRPORTS_PATH, Airport[].class));
 
         log.info("Mock data loaded: {} hotels, {} flights, {} cars",
                 hotelRepository.getHotels().size(),
                 flightRepository.getFlights().size(),
-                carRepository.getCars().size());
+                carRepository.getProviders().size());
 
     }
 
