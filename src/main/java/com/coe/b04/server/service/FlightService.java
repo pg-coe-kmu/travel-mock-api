@@ -36,39 +36,41 @@ public class FlightService {
         }
 
         if(flightRequest.getDepartureDateFrom() != null && flightRequest.getDepartureDateTo() != null)
-            return searchFlightsByRange(flightRequest.getOrigin(), flightRequest.getDestination(), flightRequest.getDepartureDateFrom(), flightRequest.getDepartureDateTo(), flightRequest.getNumberOfAdults(), flightRequest.getNumberOfChildren(), flightRequest.getNumberOfInfants(), flightRequest.getTravelClass());
+            return searchFlightsByRange(flightRequest.getOrigin(), flightRequest.getDestination(), flightRequest.getDepartureDateFrom(), flightRequest.getDepartureDateTo(), flightRequest.getNumberOfAdults(), flightRequest.getNumberOfChildren(), flightRequest.getNumberOfInfants(), flightRequest.getTravelClass(), flightRequest.getMaxPrice());
 
         if(flightRequest.getDepartureDate() != null)
-            return searchFlightsByDate(flightRequest.getOrigin(), flightRequest.getDestination(), flightRequest.getDepartureDate(), flightRequest.getNumberOfAdults(), flightRequest.getNumberOfChildren(), flightRequest.getNumberOfInfants(), flightRequest.getTravelClass());
+            return searchFlightsByDate(flightRequest.getOrigin(), flightRequest.getDestination(), flightRequest.getDepartureDate(), flightRequest.getNumberOfAdults(), flightRequest.getNumberOfChildren(), flightRequest.getNumberOfInfants(), flightRequest.getTravelClass(), flightRequest.getMaxPrice());
 
         // Fallback: No Date
         throw new IllegalArgumentException("Either departureDate or (departureDateFrom and departureDateTo) must be provided");
     }
 
-    private FlightResponse searchFlightsByDate(String origin, String destination, LocalDate departureDate, Integer numberOfAdults, Integer numberOfChildren, Integer numberOfInfants, TravelClass travelClass) {
+    private FlightResponse searchFlightsByDate(String origin, String destination, LocalDate departureDate, Integer numberOfAdults, Integer numberOfChildren, Integer numberOfInfants, TravelClass travelClass, Double maxPrice) {
         FlightRequest flightRequest = FlightRequest.builder()
                 .originIataCode(getAirportCodeByLocation(origin))
-                .destination(getAirportCodeByLocation(destination))
+                .destinationIataCode(getAirportCodeByLocation(destination))
                 .departureDate(departureDate)
                 .numberOfAdults(numberOfAdults)
                 .numberOfChildren(numberOfChildren)
                 .numberOfInfants(numberOfInfants)
                 .travelClass(travelClass)
+                .maxPrice(maxPrice)
                 .build();
 
         return new FlightResponse(flightRepository.getFlightsByDate(flightRequest));
     }
 
-    private FlightResponse searchFlightsByRange(String origin, String destination, LocalDate departureDateFrom, LocalDate departureDateTo, Integer numberOfAdults, Integer numberOfChildren, Integer numberOfInfants, TravelClass travelClass) {
+    private FlightResponse searchFlightsByRange(String origin, String destination, LocalDate departureDateFrom, LocalDate departureDateTo, Integer numberOfAdults, Integer numberOfChildren, Integer numberOfInfants, TravelClass travelClass, Double maxPrice) {
         FlightRequest flightRequest = FlightRequest.builder()
-                .origin(getAirportCodeByLocation(origin))
-                .destination(getAirportCodeByLocation(destination))
+                .originIataCode(getAirportCodeByLocation(origin))
+                .destinationIataCode(getAirportCodeByLocation(destination))
                 .departureDateFrom(departureDateFrom)
                 .departureDateTo(departureDateTo)
                 .numberOfAdults(numberOfAdults)
                 .numberOfChildren(numberOfChildren)
                 .numberOfInfants(numberOfInfants)
                 .travelClass(travelClass)
+                .maxPrice(maxPrice)
                 .build();
 
         return new FlightResponse(flightRepository.getFlightsByRange(flightRequest));

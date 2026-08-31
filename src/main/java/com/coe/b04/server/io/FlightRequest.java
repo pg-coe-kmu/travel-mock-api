@@ -46,4 +46,6 @@ public class FlightRequest {
     private Integer numberOfInfants = 0;
 
     private TravelClass travelClass;
+
+    private Double maxPrice;
 }
