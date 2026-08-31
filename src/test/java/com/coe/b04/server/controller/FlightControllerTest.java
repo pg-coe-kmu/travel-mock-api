@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 class FlightControllerTest {
 
@@ -103,5 +104,79 @@ class FlightControllerTest {
         verify(flightService).search(captor.capture());
 
         assertNull(captor.getValue().getTravelClass());
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenOriginMissing() throws Exception {
+        mockMvc.perform(get("/api/flights/search")
+                        .param("destination", "Rome")
+                        .param("departureDate", "2026-08-01")
+                        .param("numberOfAdults", "1"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(flightService);
+    }
+
+    @Test
+    void shouldReturnBadRequestForNegativePassengerCounts() throws Exception {
+        mockMvc.perform(get("/api/flights/search")
+                        .param("origin", "Paris")
+                        .param("destination", "Rome")
+                        .param("departureDate", "2026-08-01")
+                        .param("numberOfAdults", "-1"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(flightService);
+    }
+
+    @Test
+    void bindsDatesAndMaxPrice() throws Exception {
+        when(flightService.search(any())).thenReturn(new FlightResponse(List.of()));
+
+        mockMvc.perform(get("/api/flights/search")
+                        .param("origin", "Paris")
+                        .param("destination", "Rome")
+                        .param("departureDate", "2026-08-01")
+                        .param("numberOfAdults", "2")
+                        .param("numberOfChildren", "1")
+                        .param("maxPrice", "500"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<FlightRequest> captor = ArgumentCaptor.forClass(FlightRequest.class);
+        verify(flightService).search(captor.capture());
+        FlightRequest request = captor.getValue();
+        assertEquals(LocalDate.of(2026, 8, 1), request.getDepartureDate());
+        assertEquals(2, request.getNumberOfAdults());
+        assertEquals(1, request.getNumberOfChildren());
+        assertEquals(0, request.getNumberOfInfants());
+        assertEquals(500.0, request.getMaxPrice());
+    }
+
+    @Test
+    void shouldReturnBadRequestForInvalidDate() throws Exception {
+        mockMvc.perform(get("/api/flights/search")
+                        .param("origin", "Paris")
+                        .param("destination", "Rome")
+                        .param("departureDate", "not-a-date")
+                        .param("numberOfAdults", "1"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(flightService);
+    }
+
+    @Test
+    void returnsJsonResponseWithCount() throws Exception {
+        when(flightService.search(any())).thenReturn(new FlightResponse(List.of()));
+
+        mockMvc.perform(get("/api/flights/search")
+                        .param("origin", "Paris")
+                        .param("destination", "Rome")
+                        .param("departureDate", "2026-08-01")
+                        .param("numberOfAdults", "1")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.totalCount").value(0))
+                .andExpect(jsonPath("$.flights").isEmpty());
     }
 }
