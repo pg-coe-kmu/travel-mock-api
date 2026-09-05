@@ -20,3 +20,45 @@ jobs:
 
       - name: Build and test
         run: mvn -B test
+        env:
+          SUPABASE_S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
+          SUPABASE_S3_ACCESS_KEY: ${{ secrets.SUPABASE_S3_ACCESS_KEY }}
+          SUPABASE_S3_SECRET_KEY: ${{ secrets.SUPABASE_S3_SECRET_KEY }}
+          SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
+
+  docker-smoke-test:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t travel-mock-api .
+
+      - name: Smoke test remote application
+        run: |
+          docker run -d --name travel-mock-remote \
+            -e SUPABASE_S3_ENDPOINT="${{ secrets.SUPABASE_S3_ENDPOINT }}" \
+            -e SUPABASE_S3_ACCESS_KEY="${{ secrets.SUPABASE_S3_ACCESS_KEY }}" \
+            -e SUPABASE_S3_SECRET_KEY="${{ secrets.SUPABASE_S3_SECRET_KEY }}" \
+            -e SUPABASE_BUCKET="${{ secrets.SUPABASE_BUCKET }}" \
+            travel-mock-api
+          for i in $(seq 1 30); do
+            if docker logs travel-mock-remote 2>&1 | grep -q "Started TravelMockRemoteApplication"; then
+              echo "Remote application started successfully"
+              docker logs travel-mock-remote 2>&1 | grep "Mock data loaded"
+              docker stop travel-mock-remote
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' travel-mock-remote)" != "true" ]; then
+              echo "Container exited unexpectedly"
+              docker logs travel-mock-remote
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for startup"
+          docker logs travel-mock-remote
+          docker stop travel-mock-remote
+          exit 1
