@@ -49,9 +49,14 @@ jobs:
           for i in $(seq 1 30); do
             if docker logs travel-mock-remote 2>&1 | grep -q "Started TravelMockRemoteApplication"; then
               echo "Remote application started successfully"
-              docker logs travel-mock-remote 2>&1 | grep "Mock data loaded"
+              if docker logs travel-mock-remote 2>&1 | grep "Data successfully loaded"; then
+                docker stop travel-mock-remote
+                exit 0
+              fi
+              echo "Application started but no data was loaded - full container log:"
+              docker logs travel-mock-remote 2>&1
               docker stop travel-mock-remote
-              exit 0
+              exit 1
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' travel-mock-remote)" != "true" ]; then
               echo "Container exited unexpectedly"
