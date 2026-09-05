@@ -91,6 +91,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <!-- Set by the Maven profiles (remote by default, local with -Plocal) -->
+                    <mainClass>${spring.boot.mainclass}</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
