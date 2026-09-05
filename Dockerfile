@@ -1,24 +1,16 @@
-FROM maven:3.9-eclipse-temurin-23 AS build
-
-WORKDIR /app
-
-# Dependencies cachen (nur pom.xml kopieren)
-COPY pom.xml .
-RUN mvn dependency:go-offline
-
-# Quellcode kopieren und bauen
+# Build stage
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml ./
+RUN mvn -B -q dependency:resolve
 COPY src ./src
-COPY data ./data
+RUN mvn -B -q package -DskipTests
 
-RUN mvn clean package -DskipTests
-
-FROM eclipse-temurin:23-jre
-
+# Runtime stage
+FROM eclipse-temurin:21-jre
 WORKDIR /app
-
-COPY --from=build /app/target/*.jar app.jar
-COPY --from=build /app/data ./data
-
+COPY --from=build /build/target/travel-mock-api-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# The command-line argument forces the remote profile regardless of the
+# build-time default, so this image always runs the remote application.
+ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=remote"]

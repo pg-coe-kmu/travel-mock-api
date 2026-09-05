@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.*;
@@ -20,9 +21,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  *   HTTP request -> Controller -> Service -> Repository -> JSON response
  *
- * The MockDataLoader runs as part of the context startup and loads the real
- * mock data from data/mock/*.json, so the search results asserted below come
- * from the actual JSON fixtures - not from test data.
+ * The real remote profile is active, so the mock data is loaded from the
+ * Supabase S3 bucket (credentials via .env or SUPABASE_* environment
+ * variables), and the search results asserted below come from that data.
  *
  * Covered end-to-end:
  *  - application context starts and mock data loads (contextLoads)
@@ -32,12 +33,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  - flight search finds flights for a route and departure date
  *  - request validation returns 400 for missing required parameters
  *
- * Note: these tests are slower than the unit tests (~seconds) and depend on
- * the data/mock files being present.
+ * Note: these tests are slower than the unit tests (~seconds) and require the
+ * Supabase S3 credentials (.env or environment variables) plus network access.
  */
 
-@SpringBootTest
+@SpringBootTest(classes = TravelMockRemoteApplication.class)
 @AutoConfigureMockMvc
+@ActiveProfiles("remote")
 class TravelMockApiApplicationTests {
 
     @Autowired

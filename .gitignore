@@ -31,3 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local environment (contains Supabase credentials) ###
+.env
+
+### local data ###
+data/

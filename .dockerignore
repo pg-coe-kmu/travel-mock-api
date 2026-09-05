@@ -1,0 +1,9 @@
+# Never bake secrets or local data into the image
+.env
+data/
+
+# Build artifacts and IDE files
+target/
+.git/
+.idea/
+*.iml
