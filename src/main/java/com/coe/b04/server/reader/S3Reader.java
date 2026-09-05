@@ -21,7 +21,7 @@ import java.util.List;
 @Profile("remote")
 @Slf4j
 @Component
-public class S3Reader {
+public class S3Reader implements Reader {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final S3Client s3Client;
@@ -30,6 +30,7 @@ public class S3Reader {
         this.s3Client = s3Client;
     }
 
+    @Override
     public <T> List<T> load(String fileName, Class<T[]> clazz) {
         String bucket = EnvConfig.getS3Bucket();
         if (!StringUtils.hasText(bucket)) {

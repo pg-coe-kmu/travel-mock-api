@@ -20,10 +20,11 @@ import java.util.List;
 @Profile("local")
 @Slf4j
 @Component
-public class LocalReader {
+public class LocalReader implements Reader {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Override
     public <T> List<T> load(String fileName, Class<T[]> clazz) {
         Path path = EnvConfig.getLocalDataPath().resolve(fileName);
         log.info("Load {} from {}.", fileName, path);

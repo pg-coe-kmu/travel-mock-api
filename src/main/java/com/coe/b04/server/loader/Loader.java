@@ -5,29 +5,21 @@ import com.coe.b04.server.model.Airport;
 import com.coe.b04.server.model.CarProvider;
 import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.model.Hotel;
-import com.coe.b04.server.reader.LocalReader;
-import com.coe.b04.server.reader.S3Reader;
+import com.coe.b04.server.reader.Reader;
 
 import java.util.List;
 
 /*
- * Provides the mock data, either from the local data folder (LocalReader)
- * or from the Supabase S3 bucket (S3Reader). The bootstraps write the
- * provided data into the repositories.
+ * Provides the mock data via the given Reader (local data folder or
+ * Supabase S3 bucket). The bootstraps write the provided data into the
+ * repositories.
  */
 public class Loader {
 
-    private final S3Reader s3Reader;
-    private final LocalReader localReader;
+    private final Reader reader;
 
-    public Loader(S3Reader s3Reader) {
-        this.s3Reader = s3Reader;
-        this.localReader = null;
-    }
-
-    public Loader(LocalReader localReader) {
-        this.s3Reader = null;
-        this.localReader = localReader;
+    public Loader(Reader reader) {
+        this.reader = reader;
     }
 
     public List<Hotel> loadHotels() {
@@ -47,8 +39,6 @@ public class Loader {
     }
 
     private <T> List<T> load(String fileName, Class<T[]> clazz) {
-        return s3Reader != null
-                ? s3Reader.load(fileName, clazz)
-                : localReader.load(fileName, clazz);
+        return reader.load(fileName, clazz);
     }
 }
