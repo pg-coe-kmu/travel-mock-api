@@ -28,7 +28,20 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <activatedProfile>remote</activatedProfile>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.54.9</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <repositories>
         <repository>
@@ -61,6 +74,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
         </dependency>
     </dependencies>
 
@@ -116,5 +137,25 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>local</id>
+            <properties>
+                <activatedProfile>local</activatedProfile>
+                <spring.boot.mainclass>com.coe.b04.server.TravelMockLocalApplication</spring.boot.mainclass>
+            </properties>
+        </profile>
+        <profile>
+            <id>remote</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <activatedProfile>remote</activatedProfile>
+                <spring.boot.mainclass>com.coe.b04.server.TravelMockRemoteApplication</spring.boot.mainclass>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>
