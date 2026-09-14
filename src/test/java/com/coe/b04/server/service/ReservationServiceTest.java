@@ -416,12 +416,26 @@ class ReservationServiceTest {
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().plusMinutes(30));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
+        when(reservationRepository.updateStatus(any(), any(), any())).thenReturn(true);
 
         ReservationResponse response = reservationService.cancel("RES-X");
 
         assertEquals(ReservationStatus.CANCELLED, response.getStatus());
         verify(reservationRepository)
                 .updateStatus(eq(reservation.getId()), eq(ReservationStatus.CANCELLED), any(OffsetDateTime.class));
+    }
+
+    @Test
+    void cancelThrows409WhenConcurrentUpdateFails() {
+        Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
+                OffsetDateTime.now().plusMinutes(30));
+        when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
+        when(reservationRepository.updateStatus(any(), any(), any())).thenReturn(false);
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> reservationService.cancel("RES-X"));
+
+        assertEquals(HttpStatus.CONFLICT, e.getStatusCode());
     }
 
     @Test

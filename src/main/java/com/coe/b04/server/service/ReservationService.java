@@ -154,11 +154,15 @@ public class ReservationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Reservation cannot be cancelled, status: " + reservation.getStatus());
         }
-        // ponytail: check-then-act Race zwischen Cancel und Spaeter-Payment;
-        // atomarer "UPDATE ... WHERE status = 'PENDING'" sobald Payment existiert
+        // Atomarer Statuswechsel in der DB (nur wenn noch PENDING) -
+        // verliert gegen einen concurrenten Cancel/Expiry und liefert 409
+        if (!reservationRepository.updateStatus(reservation.getId(), ReservationStatus.CANCELLED,
+                OffsetDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Reservation was modified concurrently, status is no longer PENDING");
+        }
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancelledAt(OffsetDateTime.now());
-        reservationRepository.updateStatus(reservation.getId(), ReservationStatus.CANCELLED, reservation.getCancelledAt());
         return toResponse(reservation);
     }
 

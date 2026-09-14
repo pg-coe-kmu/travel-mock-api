@@ -18,7 +18,11 @@ public class DataSourceConfig {
     @Bean
     public DataSource dataSource(@Value("${SUPABASE_URL:}") String supabaseUrl,
                                  @Value("${supabase.db.password:}") String dbPassword) {
-        String projectRef = supabaseUrl.replace("https://", "").split("\\.")[0];
+        // Ohne SUPABASE_URL: wohlgeformte Fallback-URL, die Verbindung
+        // schlaegt dann erst beim ersten Reservation-Zugriff fehl.
+        String projectRef = supabaseUrl.isBlank()
+                ? "localhost"
+                : supabaseUrl.replace("https://", "").split("\\.")[0];
 
         HikariConfig hikari = new HikariConfig();
         hikari.setJdbcUrl("jdbc:postgresql://db." + projectRef + ".supabase.co:5432/postgres");

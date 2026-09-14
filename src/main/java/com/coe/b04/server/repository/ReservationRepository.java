@@ -142,11 +142,21 @@ public class ReservationRepository {
         return head;
     }
 
-    public void updateStatus(UUID id, ReservationStatus status, OffsetDateTime cancelledAt) {
-        jdbcClient.sql("update reservations set status = ?, cancelled_at = ? where id = ?")
+    /**
+     * Atomarer Statuswechsel - wirkt nur, solange die Reservation noch
+     * PENDING ist. Concurrente Cancels/Expiries koennen sich so nicht
+     * gegenseitig ueberschreiben. Rueckgabe false = kein Row getroffen.
+     */
+    public boolean updateStatus(UUID id, ReservationStatus status, OffsetDateTime cancelledAt) {
+        int rows = jdbcClient.sql("""
+                        update reservations
+                        set status = ?, cancelled_at = ?
+                        where id = ? and status = 'PENDING'
+                        """)
                 .param(status.name())
                 .param(cancelledAt)
                 .param(id)
                 .update();
+        return rows > 0;
     }
 }
