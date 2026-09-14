@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CarRepositoryTest {
@@ -161,5 +162,43 @@ class CarRepositoryTest {
 
         assertEquals(2, sixt.getCars().size());
         assertEquals(2, repository.getProviders().getFirst().getCars().size());
+    }
+
+    @Test
+    void findsProviderWithOnlyMatchingCar() {
+        CarProvider result = repository.findByProviderIdAndCarId("PROV-SIXT", "CAR-2");
+
+        assertEquals("PROV-SIXT", result.getProviderId());
+        assertEquals(List.of("CAR-2"), result.getCars().stream().map(Car::getCarId).toList());
+    }
+
+    @Test
+    void returnsNullForUnknownProviderId() {
+        assertNull(repository.findByProviderIdAndCarId("PROV-UNKNOWN", "CAR-1"));
+    }
+
+    @Test
+    void returnsNullWhenCarNotInProvider() {
+        assertNull(repository.findByProviderIdAndCarId("PROV-SIXT", "CAR-3"));
+    }
+
+    @Test
+    void findByProviderIdAndCarIdDoesNotMutateSharedData() {
+        repository.findByProviderIdAndCarId("PROV-SIXT", "CAR-2");
+
+        assertEquals(2, sixt.getCars().size());
+    }
+
+    @Test
+    void findByProviderIdReturnsFullProviderCaseInsensitive() {
+        CarProvider result = repository.findByProviderId("prov-sixt");
+
+        assertEquals("PROV-SIXT", result.getProviderId());
+        assertEquals(2, result.getCars().size());
+    }
+
+    @Test
+    void findByProviderIdReturnsNullForUnknown() {
+        assertNull(repository.findByProviderId("PROV-UNKNOWN"));
     }
 }

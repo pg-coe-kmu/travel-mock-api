@@ -51,7 +51,7 @@ class TravelMockApiApplicationTests {
 
     @Test
     void hotelSearchReturnsOnlyHotelsOfRequestedCity() throws Exception {
-        mockMvc.perform(get("/api/hotels/search")
+        mockMvc.perform(get("/search/hotels")
                         .param("destination", "Barcelona")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -62,7 +62,7 @@ class TravelMockApiApplicationTests {
 
     @Test
     void hotelSearchReducesRoomsByMaxPrice() throws Exception {
-        mockMvc.perform(get("/api/hotels/search")
+        mockMvc.perform(get("/search/hotels")
                         .param("destination", "Barcelona")
                         .param("maxPrice", "100")
                         .accept(MediaType.APPLICATION_JSON))
@@ -74,7 +74,7 @@ class TravelMockApiApplicationTests {
 
     @Test
     void carSearchReturnsProvidersWithMatchingCars() throws Exception {
-        mockMvc.perform(get("/api/cars/search")
+        mockMvc.perform(get("/search/cars")
                         .param("location", "Barcelona")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -85,7 +85,7 @@ class TravelMockApiApplicationTests {
 
     @Test
     void flightSearchFindsFlightsForRouteAndDate() throws Exception {
-        mockMvc.perform(get("/api/flights/search")
+        mockMvc.perform(get("/search/flights")
                         .param("origin", "Düsseldorf")
                         .param("destination", "Barcelona")
                         .param("departureDate", "2026-10-10")
@@ -98,13 +98,25 @@ class TravelMockApiApplicationTests {
 
     @Test
     void hotelSearchRequiresDestination() throws Exception {
-        mockMvc.perform(get("/api/hotels/search"))
+        mockMvc.perform(get("/search/hotels"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void carSearchRequiresLocation() throws Exception {
-        mockMvc.perform(get("/api/cars/search"))
+        mockMvc.perform(get("/search/cars"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void hotelDetailsReturnsHotelWithOnlyMatchingRoom() throws Exception {
+        mockMvc.perform(get("/details/hotel")
+                        .param("hotelId", "HOT-1001")
+                        .param("roomId", "ROOM-101")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hotelId").value("HOT-1001"))
+                .andExpect(jsonPath("$.roomTypes.length()").value(1))
+                .andExpect(jsonPath("$.roomTypes[0].roomId").value("ROOM-101"));
     }
 }

@@ -84,20 +84,32 @@ The application loads the mock data automatically during startup.
 ### Search hotels
 
 ```http
-GET /api/hotels/search?destination=Barcelona
+GET /search/hotels?destination=Barcelona
 ```
 
 ### Search flights
 
 ```http
-GET /api/flights/search?from=Düsseldorf&destination=Barcelona&departureDate=2026-09-09
+GET /search/flights?origin=Düsseldorf&destination=Barcelona&departureDate=2026-09-09
 ```
 
 ### Search rental cars
 
 ```http
-GET /api/cars/search?location=Barcelona
+GET /search/cars?location=Barcelona
 ```
+
+### Get details
+
+```http
+GET /details/car?providerId=PROV-SIXT-01&carId=CAR-1001
+GET /details/car?providerId=PROV-SIXT-01
+GET /details/hotel?hotelId=HOT-1001&roomId=ROOM-101
+GET /details/hotel?hotelId=HOT-1001
+GET /details/flight?flightId=FL-1001
+```
+
+`carId`/`roomId` are optional: without them the full provider/hotel is returned; with them the provider/hotel is reduced to the matching car/room. Unknown ids return 404.
 
 ## Mock Data
 

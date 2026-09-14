@@ -21,6 +21,33 @@ public class HotelRepository {
     }
 
     /*
+     * Finds the hotel by hotelId. Returns null if the hotel does not exist.
+     */
+    public Hotel findById(String hotelId) {
+        return hotels.stream()
+                .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /*
+     * Finds the hotel by hotelId and returns a copy containing only the room with the given roomId.
+     * Returns null if the hotel does not exist or does not contain a room with the given roomId.
+     */
+    public Hotel findByHotelIdAndRoomId(String hotelId, String roomId) {
+        return hotels.stream()
+                .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
+                .findFirst()
+                .map(hotel -> hotel.toBuilder()
+                        .roomTypes(hotel.getRoomTypes().stream()
+                                .filter(room -> room.getRoomId().equalsIgnoreCase(roomId))
+                                .toList())
+                        .build())
+                .filter(hotel -> !hotel.getRoomTypes().isEmpty())
+                .orElse(null);
+    }
+
+    /*
      * Finds hotels by destination and optional filter parameters from the request:
      * stars, minRating, hotelAmenities (hotel level) and
      * roomType, board, bedType, roomAmenities, guests, price range, freeCancellation (room level).

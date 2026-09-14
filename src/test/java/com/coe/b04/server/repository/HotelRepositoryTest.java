@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HotelRepositoryTest {
@@ -164,5 +165,43 @@ class HotelRepositoryTest {
 
         assertEquals(2, barcelonaHotel.getRoomTypes().size());
         assertEquals(2, repository.getHotels().getFirst().getRoomTypes().size());
+    }
+
+    @Test
+    void findsHotelWithOnlyMatchingRoom() {
+        Hotel result = repository.findByHotelIdAndRoomId("HOT-1", "ROOM-2");
+
+        assertEquals("HOT-1", result.getHotelId());
+        assertEquals(List.of("ROOM-2"), result.getRoomTypes().stream().map(RoomType::getRoomId).toList());
+    }
+
+    @Test
+    void returnsNullForUnknownHotelId() {
+        assertNull(repository.findByHotelIdAndRoomId("HOT-UNKNOWN", "ROOM-1"));
+    }
+
+    @Test
+    void returnsNullWhenRoomNotInHotel() {
+        assertNull(repository.findByHotelIdAndRoomId("HOT-1", "ROOM-3"));
+    }
+
+    @Test
+    void findByHotelIdAndRoomIdDoesNotMutateSharedData() {
+        repository.findByHotelIdAndRoomId("HOT-1", "ROOM-2");
+
+        assertEquals(2, barcelonaHotel.getRoomTypes().size());
+    }
+
+    @Test
+    void findByIdReturnsFullHotelCaseInsensitive() {
+        Hotel result = repository.findById("hot-1");
+
+        assertEquals("HOT-1", result.getHotelId());
+        assertEquals(2, result.getRoomTypes().size());
+    }
+
+    @Test
+    void findByIdReturnsNullForUnknown() {
+        assertNull(repository.findById("HOT-UNKNOWN"));
     }
 }
