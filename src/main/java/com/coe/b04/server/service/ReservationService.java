@@ -186,6 +186,10 @@ public class ReservationService {
         if (request.getReturnDate() != null && request.getReturnDate().isBefore(request.getDepartureDate())) {
             throw badRequest("returnDate must not be before departureDate");
         }
+        if (hasHotel && request.getReturnDate() != null
+                && request.getReturnDate().isEqual(request.getDepartureDate())) {
+            throw badRequest("returnDate must be after departureDate when a hotel is selected");
+        }
     }
 
     private Flight requireFlight(String flightId, CreateReservationRequest request) {
