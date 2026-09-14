@@ -17,6 +17,13 @@ import static java.lang.Integer.sum;
 public class FlightRepository {
     private List<Flight> flights;
 
+    public Flight findById(String flightId) {
+        return flights.stream()
+                .filter(flight -> flight.getFlightId().equalsIgnoreCase(flightId))
+                .findFirst()
+                .orElse(null);
+    }
+
     public List<Flight> getFlightsByDate(FlightRequest flightRequest) {
         return getFlightsByDefaultParams(
                 flightRequest.getOriginIataCode(),

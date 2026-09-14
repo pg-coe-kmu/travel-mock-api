@@ -2,11 +2,14 @@ package com.coe.b04.server.service;
 
 import com.coe.b04.server.io.FlightRequest;
 import com.coe.b04.server.io.FlightResponse;
+import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.repository.AirportRepository;
 import com.coe.b04.server.repository.FlightRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -138,5 +141,27 @@ class FlightServiceTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> flightService.search(singleDateRequest(1, 0, 0)));
+    }
+
+    @Test
+    void getDetailsReturnsFlight() {
+        Flight flight = new Flight();
+        flight.setFlightId("FL-1");
+        when(flightRepository.findById("FL-1")).thenReturn(flight);
+
+        Flight result = flightService.getDetails("FL-1");
+
+        assertEquals(flight, result);
+        verify(flightRepository).findById("FL-1");
+    }
+
+    @Test
+    void getDetailsThrowsNotFound() {
+        when(flightRepository.findById("FL-UNKNOWN")).thenReturn(null);
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> flightService.getDetails("FL-UNKNOWN"));
+
+        assertEquals(HttpStatus.NOT_FOUND, e.getStatusCode());
     }
 }

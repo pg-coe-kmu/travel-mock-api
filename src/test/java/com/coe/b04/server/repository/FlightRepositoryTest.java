@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FlightRepositoryTest {
@@ -111,5 +112,17 @@ class FlightRepositoryTest {
 
         assertEquals(2, result.size());
         assertEquals(List.of("FL-1", "FL-2"), result.stream().map(Flight::getFlightId).toList());
+    }
+
+    @Test
+    void findsFlightByFlightIdCaseInsensitive() {
+        Flight result = repository.findById("fl-2");
+
+        assertEquals("FL-2", result.getFlightId());
+    }
+
+    @Test
+    void returnsNullForUnknownFlightId() {
+        assertNull(repository.findById("FL-UNKNOWN"));
     }
 }

@@ -3,9 +3,12 @@ package com.coe.b04.server.service;
 import com.coe.b04.server.enums.TravelClass;
 import com.coe.b04.server.io.FlightRequest;
 import com.coe.b04.server.io.FlightResponse;
+import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.repository.AirportRepository;
 import com.coe.b04.server.repository.FlightRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 
@@ -18,6 +21,14 @@ public class FlightService {
     public FlightService(FlightRepository flightRepository, AirportRepository airportRepository) {
         this.flightRepository = flightRepository;
         this.airportRepository = airportRepository;
+    }
+
+    public Flight getDetails(String flightId) {
+        Flight flight = flightRepository.findById(flightId);
+        if (flight == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No flight found for flightId: " + flightId);
+        }
+        return flight;
     }
 
     public FlightResponse search(FlightRequest flightRequest) {

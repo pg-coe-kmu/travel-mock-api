@@ -7,10 +7,13 @@ import com.coe.b04.server.model.CarProvider;
 import com.coe.b04.server.repository.CarRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 class CarServiceTest {
@@ -54,5 +57,51 @@ class CarServiceTest {
 
         assertEquals(0, response.getTotalCount());
         assertNull(response.getProviders());
+    }
+
+    @Test
+    void getDetailsReturnsFilteredProvider() {
+        CarProvider provider = CarProvider.builder()
+                .providerId("PROV-1")
+                .cars(List.of(Car.builder().carId("CAR-1").build()))
+                .build();
+        when(carRepository.findByProviderIdAndCarId("PROV-1", "CAR-1")).thenReturn(provider);
+
+        CarProvider result = carService.getDetails("PROV-1", "CAR-1");
+
+        assertEquals(provider, result);
+        verify(carRepository).findByProviderIdAndCarId("PROV-1", "CAR-1");
+    }
+
+    @Test
+    void getDetailsThrowsNotFound() {
+        when(carRepository.findByProviderIdAndCarId("PROV-1", "CAR-UNKNOWN")).thenReturn(null);
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> carService.getDetails("PROV-1", "CAR-UNKNOWN"));
+
+        assertEquals(HttpStatus.NOT_FOUND, e.getStatusCode());
+    }
+
+    @Test
+    void getDetailsReturnsFullProviderWhenCarIdNull() {
+        CarProvider provider = CarProvider.builder().providerId("PROV-1").build();
+        when(carRepository.findByProviderId("PROV-1")).thenReturn(provider);
+
+        CarProvider result = carService.getDetails("PROV-1", null);
+
+        assertEquals(provider, result);
+        verify(carRepository).findByProviderId("PROV-1");
+        verify(carRepository, never()).findByProviderIdAndCarId(anyString(), anyString());
+    }
+
+    @Test
+    void getDetailsThrowsNotFoundForUnknownProvider() {
+        when(carRepository.findByProviderId("PROV-UNKNOWN")).thenReturn(null);
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> carService.getDetails("PROV-UNKNOWN", null));
+
+        assertEquals(HttpStatus.NOT_FOUND, e.getStatusCode());
     }
 }

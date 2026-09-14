@@ -17,6 +17,33 @@ public class CarRepository {
     private List<CarProvider> providers;
 
     /*
+     * Finds the provider by providerId. Returns null if the provider does not exist.
+     */
+    public CarProvider findByProviderId(String providerId) {
+        return providers.stream()
+                .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /*
+     * Finds the provider by providerId and returns a copy containing only the car with the given carId.
+     * Returns null if the provider does not exist or does not contain a car with the given carId.
+     */
+    public CarProvider findByProviderIdAndCarId(String providerId, String carId) {
+        return providers.stream()
+                .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
+                .findFirst()
+                .map(provider -> provider.toBuilder()
+                        .cars(provider.getCars().stream()
+                                .filter(car -> car.getCarId().equalsIgnoreCase(carId))
+                                .toList())
+                        .build())
+                .filter(provider -> !provider.getCars().isEmpty())
+                .orElse(null);
+    }
+
+    /*
      * Finds providers by pickup location and optional filter parameters from the request:
      * providerName, minRating, driverAge, baseCurrency (provider level) and
      * returnLocation, vehicleClass, categoryCode, brand, model, transmission, fuelType, driveType,
