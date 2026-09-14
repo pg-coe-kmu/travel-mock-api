@@ -90,7 +90,7 @@ GET /search/hotels?destination=Barcelona
 ### Search flights
 
 ```http
-GET /search/flights?from=Düsseldorf&destination=Barcelona&departureDate=2026-09-09
+GET /search/flights?origin=Düsseldorf&destination=Barcelona&departureDate=2026-09-09
 ```
 
 ### Search rental cars
