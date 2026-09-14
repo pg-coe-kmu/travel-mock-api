@@ -143,17 +143,34 @@ public class ReservationRepository {
     }
 
     /**
-     * Atomarer Statuswechsel - wirkt nur, solange die Reservation noch
-     * PENDING ist. Concurrente Cancels/Expiries koennen sich so nicht
-     * gegenseitig ueberschreiben. Rueckgabe false = kein Row getroffen.
+     * Atomarer Statuswechsel fuer die Lazy-Expiry - wirkt nur, solange
+     * die Reservation noch PENDING ist. Rueckgabe false = kein Row getroffen.
      */
-    public boolean updateStatus(UUID id, ReservationStatus status, OffsetDateTime cancelledAt) {
+    public boolean updateStatus(UUID id, ReservationStatus status) {
         int rows = jdbcClient.sql("""
                         update reservations
-                        set status = ?, cancelled_at = ?
+                        set status = ?
                         where id = ? and status = 'PENDING'
                         """)
                 .param(status.name())
+                .param(id)
+                .update();
+        return rows > 0;
+    }
+
+    /**
+     * Atomarer Cancel - wirkt nur, solange die Reservation laut DB-Uhr
+     * noch PENDING UND nicht abgelaufen ist (App-Uhr und DB-Uhr koennen
+     * driften, expires_at entscheidet die DB). Rueckgabe false = verlor
+     * gegen einen concurrenten Cancel/Expiry oder bereits abgelaufen.
+     */
+    public boolean cancel(UUID id, OffsetDateTime cancelledAt) {
+        int rows = jdbcClient.sql("""
+                        update reservations
+                        set status = 'CANCELLED', cancelled_at = ?
+                        where id = ? and status = 'PENDING'
+                          and expires_at > CURRENT_TIMESTAMP
+                        """)
                 .param(cancelledAt)
                 .param(id)
                 .update();

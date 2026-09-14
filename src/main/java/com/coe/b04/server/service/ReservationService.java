@@ -112,8 +112,7 @@ public class ReservationService {
     }
 
     public ReservationResponse getByNumber(String reservationNumber) {
-        Reservation reservation = findOrThrow(reservationNumber);
-        applyLazyExpiry(reservation);
+        Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
         return toResponse(reservation);
     }
 
@@ -123,8 +122,7 @@ public class ReservationService {
      * (Mock-Daten geaendert), bleibt der jeweilige Block null.
      */
     public ReservationDetailsResponse getDetails(String reservationNumber) {
-        Reservation reservation = findOrThrow(reservationNumber);
-        applyLazyExpiry(reservation);
+        Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
         ReservationResponse base = toResponse(reservation);
 
         Flight outbound = null;
@@ -148,21 +146,20 @@ public class ReservationService {
     }
 
     public ReservationResponse cancel(String reservationNumber) {
-        Reservation reservation = findOrThrow(reservationNumber);
-        applyLazyExpiry(reservation);
+        Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
         if (reservation.getStatus() != ReservationStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Reservation cannot be cancelled, status: " + reservation.getStatus());
         }
-        // Atomarer Statuswechsel in der DB (nur wenn noch PENDING) -
-        // verliert gegen einen concurrenten Cancel/Expiry und liefert 409
-        if (!reservationRepository.updateStatus(reservation.getId(), ReservationStatus.CANCELLED,
-                OffsetDateTime.now())) {
+        // Atomarer Cancel in der DB (nur wenn noch PENDING und laut DB-Uhr
+        // nicht abgelaufen) - verliert gegen concurrente Aenderungen und liefert 409
+        OffsetDateTime cancelledAt = OffsetDateTime.now();
+        if (!reservationRepository.cancel(reservation.getId(), cancelledAt)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Reservation was modified concurrently, status is no longer PENDING");
         }
         reservation.setStatus(ReservationStatus.CANCELLED);
-        reservation.setCancelledAt(OffsetDateTime.now());
+        reservation.setCancelledAt(cancelledAt);
         return toResponse(reservation);
     }
 
@@ -308,12 +305,21 @@ public class ReservationService {
                         "No reservation found for reservationNumber: " + reservationNumber));
     }
 
-    private void applyLazyExpiry(Reservation reservation) {
+    /**
+     * Setzt abgelaufene PENDING-Reservations lazy auf EXPIRED.
+     * Verliert der bedingte UPDATE gegen einen concurrenten Cancel,
+     * wird der in der DB gewonnene Status neu geladen.
+     */
+    private Reservation applyLazyExpiry(Reservation reservation) {
         if (reservation.getStatus() == ReservationStatus.PENDING
                 && !reservation.getExpiresAt().isAfter(OffsetDateTime.now())) {
-            reservation.setStatus(ReservationStatus.EXPIRED);
-            reservationRepository.updateStatus(reservation.getId(), ReservationStatus.EXPIRED, null);
+            if (reservationRepository.updateStatus(reservation.getId(), ReservationStatus.EXPIRED)) {
+                reservation.setStatus(ReservationStatus.EXPIRED);
+            } else {
+                return findOrThrow(reservation.getReservationNumber());
+            }
         }
+        return reservation;
     }
 
     // ---------- Mapping ----------

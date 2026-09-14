@@ -386,11 +386,27 @@ class ReservationServiceTest {
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().minusMinutes(1));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
+        when(reservationRepository.updateStatus(any(), any())).thenReturn(true);
 
         ReservationResponse response = reservationService.getByNumber("RES-X");
 
         assertEquals(ReservationStatus.EXPIRED, response.getStatus());
-        verify(reservationRepository).updateStatus(reservation.getId(), ReservationStatus.EXPIRED, null);
+        verify(reservationRepository).updateStatus(reservation.getId(), ReservationStatus.EXPIRED);
+    }
+
+    @Test
+    void getByNumberShowsDbStateWhenExpiryLosesRace() {
+        Reservation expired = reservation("RES-X", ReservationStatus.PENDING,
+                OffsetDateTime.now().minusMinutes(1));
+        Reservation cancelled = reservation("RES-X", ReservationStatus.CANCELLED,
+                OffsetDateTime.now().plusMinutes(30));
+        when(reservationRepository.findByReservationNumber("RES-X"))
+                .thenReturn(Optional.of(expired), Optional.of(cancelled));
+        when(reservationRepository.updateStatus(any(), any())).thenReturn(false);
+
+        ReservationResponse response = reservationService.getByNumber("RES-X");
+
+        assertEquals(ReservationStatus.CANCELLED, response.getStatus());
     }
 
     @Test
@@ -416,21 +432,22 @@ class ReservationServiceTest {
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().plusMinutes(30));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
-        when(reservationRepository.updateStatus(any(), any(), any())).thenReturn(true);
+        when(reservationRepository.cancel(any(), any())).thenReturn(true);
 
         ReservationResponse response = reservationService.cancel("RES-X");
 
         assertEquals(ReservationStatus.CANCELLED, response.getStatus());
         verify(reservationRepository)
-                .updateStatus(eq(reservation.getId()), eq(ReservationStatus.CANCELLED), any(OffsetDateTime.class));
+                .cancel(eq(reservation.getId()), any(OffsetDateTime.class));
     }
 
     @Test
-    void cancelThrows409WhenConcurrentUpdateFails() {
+    void cancelThrows409WhenConditionalCancelFails() {
+        // DB lehnt ab: concurrent geaendert oder laut DB-Uhr bereits abgelaufen
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().plusMinutes(30));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
-        when(reservationRepository.updateStatus(any(), any(), any())).thenReturn(false);
+        when(reservationRepository.cancel(any(), any())).thenReturn(false);
 
         ResponseStatusException e = assertThrows(ResponseStatusException.class,
                 () -> reservationService.cancel("RES-X"));
@@ -443,6 +460,7 @@ class ReservationServiceTest {
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().minusMinutes(1));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
+        when(reservationRepository.updateStatus(any(), any())).thenReturn(true);
 
         ResponseStatusException e = assertThrows(ResponseStatusException.class,
                 () -> reservationService.cancel("RES-X"));
