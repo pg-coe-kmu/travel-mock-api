@@ -119,4 +119,11 @@ class TravelMockApiApplicationTests {
                 .andExpect(jsonPath("$.roomTypes.length()").value(1))
                 .andExpect(jsonPath("$.roomTypes[0].roomId").value("ROOM-101"));
     }
+
+    @Test
+    void reservationSnapshotRequiresNonBlankReservationNumber() throws Exception {
+        mockMvc.perform(get("/reservation/snapshot")
+                        .param("reservationNumber", " "))
+                .andExpect(status().isBadRequest());
+    }
 }
