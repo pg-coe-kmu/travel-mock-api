@@ -1,7 +1,6 @@
 package com.coe.b04.server.controller;
 
 import com.coe.b04.server.enums.ReservationStatus;
-import com.coe.b04.server.io.ReservationDetailsResponse;
 import com.coe.b04.server.io.ReservationResponse;
 import com.coe.b04.server.service.ReservationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,19 +102,6 @@ class ReservationControllerTest {
         mockMvc.perform(get("/reservation/snapshot")
                         .param("reservationNumber", "RES-UNKNOWN"))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void detailsReturns200() throws Exception {
-        ReservationDetailsResponse details = new ReservationDetailsResponse();
-        details.setReservationNumber("RES-X");
-        details.setStatus(ReservationStatus.PENDING);
-        when(reservationService.getDetails("RES-X")).thenReturn(details);
-
-        mockMvc.perform(get("/reservation/details")
-                        .param("reservationNumber", "RES-X"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reservationNumber").value("RES-X"));
     }
 
     @Test

@@ -4,7 +4,6 @@ import com.coe.b04.server.enums.Direction;
 import com.coe.b04.server.enums.ReservationStatus;
 import com.coe.b04.server.enums.ServiceType;
 import com.coe.b04.server.io.CreateReservationRequest;
-import com.coe.b04.server.io.ReservationDetailsResponse;
 import com.coe.b04.server.io.ReservationResponse;
 import com.coe.b04.server.model.Car;
 import com.coe.b04.server.model.CarProvider;
@@ -117,48 +116,6 @@ public class ReservationService {
     public ReservationResponse getByNumber(String reservationNumber) {
         Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
         return toResponse(reservation);
-    }
-
-    /**
-     * Wie getByNumber, zusaetzlich die vollen Angebotsinhalte aus den
-     * Mock-APIs. Sind die referenzierten IDs dort nicht mehr vorhanden
-     * (Mock-Daten geaendert), bleibt der jeweilige Block null.
-     */
-    public ReservationDetailsResponse getDetails(String reservationNumber) {
-        Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
-        ReservationResponse base = toResponse(reservation);
-
-        Flight outbound = null;
-        Flight returnFlight = null;
-        Hotel hotel = null;
-        CarProvider car = null;
-        for (ReservationItem item : reservation.getItems()) {
-            switch (item.getItemType()) {
-                case FLIGHT -> {
-                    ReservationFlightDetail detail = item.getFlight();
-                    Flight flight = flightRepository.findById(detail.getFlightId());
-                    if (detail.getDirection() == Direction.OUTBOUND) {
-                        outbound = flight;
-                    } else {
-                        returnFlight = flight;
-                    }
-                }
-                case HOTEL -> {
-                    ReservationHotelDetail detail = item.getHotel();
-                    hotel = hotelRepository.findByHotelIdAndRoomId(detail.getHotelId(), detail.getRoomId());
-                }
-                case CAR -> {
-                    ReservationCarDetail detail = item.getCar();
-                    car = carRepository.findByProviderIdAndCarId(detail.getProviderId(), detail.getCarId());
-                }
-            }
-        }
-
-        ReservationDetailsResponse.FlightDetails flight = (outbound != null || returnFlight != null)
-                ? new ReservationDetailsResponse.FlightDetails(outbound, returnFlight)
-                : null;
-
-        return ReservationDetailsResponse.from(base, flight, hotel, car);
     }
 
     public ReservationResponse cancel(String reservationNumber) {

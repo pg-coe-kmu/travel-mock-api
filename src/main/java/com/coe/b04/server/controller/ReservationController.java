@@ -2,7 +2,6 @@ package com.coe.b04.server.controller;
 
 import com.coe.b04.server.io.CancelReservationRequest;
 import com.coe.b04.server.io.CreateReservationRequest;
-import com.coe.b04.server.io.ReservationDetailsResponse;
 import com.coe.b04.server.io.ReservationResponse;
 import com.coe.b04.server.service.ReservationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,18 +54,6 @@ public class ReservationController {
             @RequestParam(value = "reservationNumber")
             @NotBlank(message = "reservationNumber is required") String reservationNumber) {
         return ResponseEntity.ok(reservationService.getByNumber(reservationNumber));
-    }
-
-    @Operation(summary = "Get reservation details",
-            description = "Like GET, additionally resolves the full hotel/flight/car "
-                    + "offer contents via the stored ids.")
-    @ApiResponse(responseCode = "404", description = "Reservation not found")
-    @GetMapping("reservation/details")
-    public ResponseEntity<ReservationDetailsResponse> details(
-            @Parameter(description = "Reservation number", required = true)
-            @RequestParam(value = "reservationNumber")
-            @NotBlank(message = "reservationNumber is required") String reservationNumber) {
-        return ResponseEntity.ok(reservationService.getDetails(reservationNumber));
     }
 
     @Operation(summary = "Cancel reservation",

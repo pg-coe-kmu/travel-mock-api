@@ -4,7 +4,6 @@ import com.coe.b04.server.enums.Direction;
 import com.coe.b04.server.enums.ReservationStatus;
 import com.coe.b04.server.enums.ServiceType;
 import com.coe.b04.server.io.CreateReservationRequest;
-import com.coe.b04.server.io.ReservationDetailsResponse;
 import com.coe.b04.server.io.ReservationResponse;
 import com.coe.b04.server.model.Car;
 import com.coe.b04.server.model.CarLocation;
@@ -583,22 +582,6 @@ class ReservationServiceTest {
         ReservationResponse response = reservationService.getByNumber("RES-X");
 
         assertEquals(ReservationStatus.CANCELLED, response.getStatus());
-    }
-
-    @Test
-    void getDetailsResolvesOfferContents() {
-        stubFullOffer();
-        when(reservationRepository.findByReservationNumber("RES-X"))
-                .thenReturn(Optional.of(reservation("RES-X", ReservationStatus.PENDING,
-                        OffsetDateTime.now().plusMinutes(30))));
-
-        ReservationDetailsResponse response = reservationService.getDetails("RES-X");
-
-        assertEquals("FL-1", response.getFlight().getOutbound().getFlightId());
-        assertEquals("FL-2", response.getFlight().getReturnFlight().getFlightId());
-        assertEquals("HOT-1", response.getHotel().getHotelId());
-        assertEquals("CAR-1", response.getCar().getCars().getFirst().getCarId());
-        assertEquals(0, new BigDecimal("1107.50").compareTo(response.getPrice().getTotalPrice()));
     }
 
     // ---------- cancel ----------
