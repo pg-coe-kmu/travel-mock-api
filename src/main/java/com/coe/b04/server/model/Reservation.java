@@ -7,15 +7,15 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Reservation-Entitaet, 1:1 zur Tabelle reservations (db/reservations.sql).
- * Preise/Zeiten sind Snapshots; Hotel-/Flug-/Car-Inhalte werden ueber die
- * IDs in reservation_services aufgeloest.
+ * Keine globalen Reisedaten mehr: Zeitraeume liegen auf Item-Ebene
+ * (reservation_flights/hotels/cars). Preise sind Snapshots; Angebotsinhalte
+ * werden ueber die externen IDs in den Detailtabellen aufgeloest.
  */
 @Data
 @Builder(toBuilder = true)
@@ -29,8 +29,6 @@ public class Reservation {
 
     private String origin;
     private String destination;
-    private LocalDate departureDate;
-    private LocalDate returnDate;
 
     private int adults;
     private int children;
@@ -43,5 +41,5 @@ public class Reservation {
     private OffsetDateTime expiresAt;
     private OffsetDateTime cancelledAt;
 
-    private List<ReservationItem> services;
+    private List<ReservationItem> items;
 }

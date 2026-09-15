@@ -1,5 +1,6 @@
 package com.coe.b04.server.service;
 
+import com.coe.b04.server.enums.Direction;
 import com.coe.b04.server.enums.ReservationStatus;
 import com.coe.b04.server.enums.ServiceType;
 import com.coe.b04.server.io.CreateReservationRequest;
@@ -14,6 +15,9 @@ import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.model.Hotel;
 import com.coe.b04.server.model.MaxOccupancy;
 import com.coe.b04.server.model.Reservation;
+import com.coe.b04.server.model.ReservationCarDetail;
+import com.coe.b04.server.model.ReservationFlightDetail;
+import com.coe.b04.server.model.ReservationHotelDetail;
 import com.coe.b04.server.model.ReservationItem;
 import com.coe.b04.server.model.RoomType;
 import com.coe.b04.server.repository.CarRepository;
@@ -27,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -83,6 +88,12 @@ class ReservationServiceTest {
         flight.setFlightId(id);
         flight.setPrice(new BigDecimal(price));
         flight.setCurrency(currency);
+        flight.setAirline("Lufthansa");
+        flight.setFlightNumber("LH 123");
+        flight.setDepartureAirport("FRA");
+        flight.setArrivalAirport("MAD");
+        flight.setDepartureTime(LocalDateTime.of(2026, 10, 10, 8, 0));
+        flight.setArrivalTime(LocalDateTime.of(2026, 10, 10, 11, 0));
         return flight;
     }
 
@@ -90,10 +101,12 @@ class ReservationServiceTest {
                                 String currency, int maxAdults, int maxChildren) {
         RoomType room = new RoomType();
         room.setRoomId(roomId);
+        room.setRoomType("Standard Double");
         room.setPricePerNight(new BigDecimal(pricePerNight));
         room.setMaxOccupancy(new MaxOccupancy(maxAdults, maxChildren));
         return Hotel.builder()
                 .hotelId(hotelId)
+                .name("Test Hotel")
                 .baseCurrency(currency)
                 .roomTypes(List.of(room))
                 .build();
@@ -103,6 +116,8 @@ class ReservationServiceTest {
         CarLocation location = new CarLocation("LOC-1", "Madrid Airport", "Madrid", "Address", "07:00 - 23:00");
         Car car = Car.builder()
                 .carId(carId)
+                .brand("VW")
+                .model("Golf")
                 .pricing(new CarPricing(new BigDecimal(pricePerDay), new BigDecimal(pricePerDay), 1))
                 .locations(new CarLocations(location, location))
                 .build();
@@ -129,23 +144,64 @@ class ReservationServiceTest {
                 .status(status)
                 .origin("Frankfurt am Main")
                 .destination("Madrid")
-                .departureDate(LocalDate.of(2026, 10, 10))
-                .returnDate(LocalDate.of(2026, 10, 17))
                 .adults(2)
                 .currency("EUR")
                 .totalPrice(new BigDecimal("1107.50"))
                 .createdAt(OffsetDateTime.now().minusMinutes(30))
                 .expiresAt(expiresAt)
-                .services(List.of(
-                        ReservationItem.builder().serviceType(ServiceType.FLIGHT).serviceId("FL-1").price(new BigDecimal("289.00")).build(),
-                        ReservationItem.builder().serviceType(ServiceType.RETURN_FLIGHT).serviceId("FL-2").price(new BigDecimal("311.00")).build(),
-                        ReservationItem.builder().serviceType(ServiceType.HOTEL).serviceId("HOT-1").roomId("ROOM-1")
-                                .checkIn(LocalDate.of(2026, 10, 10)).checkOut(LocalDate.of(2026, 10, 17))
-                                .price(new BigDecimal("308.00")).build(),
-                        ReservationItem.builder().serviceType(ServiceType.CAR).serviceId("CAR-1").providerId("PROV-1")
-                                .pickupDate(LocalDate.of(2026, 10, 10)).returnDate(LocalDate.of(2026, 10, 17))
-                                .pickupLocation("Madrid Airport").returnLocation("Madrid Airport")
-                                .price(new BigDecimal("199.50")).build()))
+                .items(List.of(
+                        flightItem(Direction.OUTBOUND, "FL-1", "289.00", 10),
+                        flightItem(Direction.RETURN, "FL-2", "311.00", 17),
+                        hotelItem("HOT-1", "ROOM-1", "308.00"),
+                        carItem("CAR-1", "PROV-1", "199.50")))
+                .build();
+    }
+
+    private ReservationItem flightItem(Direction direction, String flightId, String price, int day) {
+        return ReservationItem.builder()
+                .itemType(ServiceType.FLIGHT)
+                .price(new BigDecimal(price))
+                .flight(ReservationFlightDetail.builder()
+                        .direction(direction)
+                        .flightId(flightId)
+                        .airline("Lufthansa")
+                        .flightNumber("LH 123")
+                        .departureAirport("FRA")
+                        .arrivalAirport("MAD")
+                        .departureAt(OffsetDateTime.parse("2026-10-" + day + "T08:00:00Z"))
+                        .arrivalAt(OffsetDateTime.parse("2026-10-" + day + "T11:00:00Z"))
+                        .build())
+                .build();
+    }
+
+    private ReservationItem hotelItem(String hotelId, String roomId, String price) {
+        return ReservationItem.builder()
+                .itemType(ServiceType.HOTEL)
+                .price(new BigDecimal(price))
+                .hotel(ReservationHotelDetail.builder()
+                        .hotelId(hotelId)
+                        .roomId(roomId)
+                        .checkIn(LocalDate.of(2026, 10, 10))
+                        .checkOut(LocalDate.of(2026, 10, 17))
+                        .hotelName("Test Hotel")
+                        .roomName("Standard Double")
+                        .build())
+                .build();
+    }
+
+    private ReservationItem carItem(String carId, String providerId, String price) {
+        return ReservationItem.builder()
+                .itemType(ServiceType.CAR)
+                .price(new BigDecimal(price))
+                .car(ReservationCarDetail.builder()
+                        .carId(carId)
+                        .providerId(providerId)
+                        .pickupAt(OffsetDateTime.parse("2026-10-10T00:00:00Z"))
+                        .returnAt(OffsetDateTime.parse("2026-10-17T00:00:00Z"))
+                        .pickupLocation("Madrid Airport")
+                        .returnLocation("Madrid Airport")
+                        .vehicleName("VW Golf")
+                        .build())
                 .build();
     }
 
@@ -165,15 +221,88 @@ class ReservationServiceTest {
 
         // 289 + 311 + 7 * 44 + 7 * 28.50 = 1107.50
         assertEquals(0, new BigDecimal("1107.50").compareTo(response.getPrice().getTotalPrice()));
-        assertEquals(0, new BigDecimal("600.00").compareTo(response.getPrice().getFlightPrice()));
-        assertEquals(0, new BigDecimal("308.00").compareTo(response.getPrice().getHotelPrice()));
-        assertEquals(0, new BigDecimal("199.50").compareTo(response.getPrice().getCarPrice()));
         assertEquals("EUR", response.getPrice().getCurrency());
         assertEquals(ReservationStatus.PENDING, response.getStatus());
-        assertEquals(4, response.getServices().size());
+        assertEquals(4, response.getItems().size());
+        // Items: Flug + Rueckflug + Hotel + Car, Details im jeweiligen Fachobjekt
+        assertEquals(ServiceType.FLIGHT, response.getItems().get(0).getType());
+        assertEquals(Direction.OUTBOUND, response.getItems().get(0).getFlight().getDirection());
+        assertEquals(Direction.RETURN, response.getItems().get(1).getFlight().getDirection());
+        assertEquals(ServiceType.HOTEL, response.getItems().get(2).getType());
+        assertEquals("ROOM-1", response.getItems().get(2).getHotel().getRoomId());
+        assertEquals(ServiceType.CAR, response.getItems().get(3).getType());
+        assertEquals("PROV-1", response.getItems().get(3).getCar().getProviderId());
         assertTrue(response.getReservationNumber().matches("RES-\\d{8}-[A-HJ-NP-Z2-9]{6}"));
         assertTrue(response.getExpiresAt().isAfter(response.getCreatedAt()));
         verify(reservationRepository).save(any());
+    }
+
+    @Test
+    void createSingleOutboundFlightOnly() {
+        when(flightRepository.findById("FL-1")).thenReturn(flight("FL-1", "100.00", "EUR"));
+
+        CreateReservationRequest request = CreateReservationRequest.builder()
+                .origin("Frankfurt am Main")
+                .destination("Madrid")
+                .departureDate(LocalDate.of(2026, 10, 10))
+                .adults(1)
+                .currency("EUR")
+                .flightId("FL-1")
+                .build();
+
+        ReservationResponse response = reservationService.create(request);
+
+        assertEquals(1, response.getItems().size());
+        assertEquals(ServiceType.FLIGHT, response.getItems().getFirst().getType());
+        assertEquals(Direction.OUTBOUND, response.getItems().getFirst().getFlight().getDirection());
+        assertEquals(0, new BigDecimal("100.00").compareTo(response.getPrice().getTotalPrice()));
+    }
+
+    @Test
+    void createFlightAndHotelWithoutCar() {
+        when(flightRepository.findById("FL-1")).thenReturn(flight("FL-1", "100.00", "EUR"));
+        when(hotelRepository.findByHotelIdAndRoomId("HOT-1", "ROOM-1"))
+                .thenReturn(hotelWithRoom("HOT-1", "ROOM-1", "44.00", "EUR", 2, 1));
+
+        CreateReservationRequest request = CreateReservationRequest.builder()
+                .origin("Frankfurt am Main").destination("Madrid")
+                .departureDate(LocalDate.of(2026, 10, 10)).returnDate(LocalDate.of(2026, 10, 17))
+                .adults(2).currency("EUR")
+                .flightId("FL-1")
+                .hotelId("HOT-1").roomId("ROOM-1")
+                .build();
+
+        ReservationResponse response = reservationService.create(request);
+
+        assertEquals(2, response.getItems().size());
+        assertEquals(ServiceType.FLIGHT, response.getItems().get(0).getType());
+        assertEquals(ServiceType.HOTEL, response.getItems().get(1).getType());
+        // 100 + 7 * 44 = 408.00
+        assertEquals(0, new BigDecimal("408.00").compareTo(response.getPrice().getTotalPrice()));
+    }
+
+    @Test
+    void createHotelAndCarWithoutFlight() {
+        when(hotelRepository.findByHotelIdAndRoomId("HOT-1", "ROOM-1"))
+                .thenReturn(hotelWithRoom("HOT-1", "ROOM-1", "44.00", "EUR", 2, 1));
+        when(carRepository.findByProviderIdAndCarId("PROV-1", "CAR-1"))
+                .thenReturn(providerWithCar("PROV-1", "CAR-1", "28.50", "EUR"));
+
+        CreateReservationRequest request = CreateReservationRequest.builder()
+                .origin("Frankfurt am Main").destination("Madrid")
+                .departureDate(LocalDate.of(2026, 10, 10)).returnDate(LocalDate.of(2026, 10, 17))
+                .adults(2).currency("EUR")
+                .hotelId("HOT-1").roomId("ROOM-1")
+                .carId("CAR-1").providerId("PROV-1")
+                .build();
+
+        ReservationResponse response = reservationService.create(request);
+
+        assertEquals(2, response.getItems().size());
+        assertEquals(ServiceType.HOTEL, response.getItems().get(0).getType());
+        assertEquals(ServiceType.CAR, response.getItems().get(1).getType());
+        // 7 * 44 + 7 * 28.50 = 507.50
+        assertEquals(0, new BigDecimal("507.50").compareTo(response.getPrice().getTotalPrice()));
     }
 
     @Test
@@ -193,16 +322,14 @@ class ReservationServiceTest {
 
         ReservationResponse response = reservationService.create(request);
 
-        assertEquals(1, response.getServices().size());
-        ReservationResponse.ServiceItemResponse hotel = response.getServices().getFirst();
-        assertEquals(ServiceType.HOTEL, hotel.getServiceType());
-        assertEquals("ROOM-1", hotel.getRoomId());
-        assertEquals(LocalDate.of(2026, 10, 10), hotel.getCheckIn());
+        assertEquals(1, response.getItems().size());
+        ReservationResponse.ItemResponse hotel = response.getItems().getFirst();
+        assertEquals(ServiceType.HOTEL, hotel.getType());
+        assertEquals("ROOM-1", hotel.getHotel().getRoomId());
+        assertEquals(LocalDate.of(2026, 10, 10), hotel.getHotel().getCheckIn());
         // ohne Rueckreise: eine Nacht
-        assertEquals(LocalDate.of(2026, 10, 11), hotel.getCheckOut());
-        assertEquals(0, new BigDecimal("50.00").compareTo(response.getPrice().getHotelPrice()));
-        assertNull(response.getPrice().getFlightPrice());
-        assertNull(response.getPrice().getCarPrice());
+        assertEquals(LocalDate.of(2026, 10, 11), hotel.getHotel().getCheckOut());
+        assertEquals(0, new BigDecimal("50.00").compareTo(response.getPrice().getTotalPrice()));
     }
 
     @Test
@@ -223,10 +350,10 @@ class ReservationServiceTest {
 
         ReservationResponse response = reservationService.create(request);
 
-        assertEquals(2, response.getServices().size());
-        assertEquals(0, new BigDecimal("180.00").compareTo(response.getPrice().getFlightPrice()));
-        assertNull(response.getPrice().getHotelPrice());
-        assertNull(response.getPrice().getCarPrice());
+        assertEquals(2, response.getItems().size());
+        assertEquals(ServiceType.FLIGHT, response.getItems().get(0).getType());
+        assertEquals(ServiceType.FLIGHT, response.getItems().get(1).getType());
+        assertEquals(0, new BigDecimal("180.00").compareTo(response.getPrice().getTotalPrice()));
     }
 
     @Test
@@ -368,7 +495,56 @@ class ReservationServiceTest {
 
         assertEquals("RES-X", response.getReservationNumber());
         assertEquals(ReservationStatus.PENDING, response.getStatus());
-        assertEquals(4, response.getServices().size());
+        assertEquals(4, response.getItems().size());
+    }
+
+    @Test
+    void getByNumberKeepsIndependentItemDateRanges() {
+        // Hotel und Car haben bewusst unterschiedliche Zeitraeume -
+        // das Response-Modell darf keine gemeinsamen Reisedaten annehmen.
+        Reservation reservation = Reservation.builder()
+                .id(UUID.randomUUID())
+                .reservationNumber("RES-X")
+                .status(ReservationStatus.PENDING)
+                .origin("Frankfurt am Main")
+                .destination("Madrid")
+                .adults(2)
+                .currency("EUR")
+                .totalPrice(new BigDecimal("500.00"))
+                .createdAt(OffsetDateTime.now().minusMinutes(30))
+                .expiresAt(OffsetDateTime.now().plusMinutes(30))
+                .items(List.of(
+                        ReservationItem.builder()
+                                .itemType(ServiceType.HOTEL)
+                                .price(new BigDecimal("300.00"))
+                                .hotel(ReservationHotelDetail.builder()
+                                        .hotelId("HOT-1").roomId("ROOM-1")
+                                        .checkIn(LocalDate.of(2026, 10, 10))
+                                        .checkOut(LocalDate.of(2026, 10, 17))
+                                        .hotelName("Test Hotel").roomName("Standard Double")
+                                        .build())
+                                .build(),
+                        ReservationItem.builder()
+                                .itemType(ServiceType.CAR)
+                                .price(new BigDecimal("200.00"))
+                                .car(ReservationCarDetail.builder()
+                                        .carId("CAR-1").providerId("PROV-1")
+                                        .pickupAt(OffsetDateTime.parse("2026-10-12T00:00:00Z"))
+                                        .returnAt(OffsetDateTime.parse("2026-10-15T00:00:00Z"))
+                                        .pickupLocation("Madrid Airport").returnLocation("Madrid Airport")
+                                        .vehicleName("VW Golf")
+                                        .build())
+                                .build()))
+                .build();
+        when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
+
+        ReservationResponse response = reservationService.getByNumber("RES-X");
+
+        assertEquals(2, response.getItems().size());
+        assertEquals(LocalDate.of(2026, 10, 10), response.getItems().get(0).getHotel().getCheckIn());
+        assertEquals(LocalDate.of(2026, 10, 17), response.getItems().get(0).getHotel().getCheckOut());
+        assertEquals(LocalDate.of(2026, 10, 12), response.getItems().get(1).getCar().getPickupAt().toLocalDate());
+        assertEquals(LocalDate.of(2026, 10, 15), response.getItems().get(1).getCar().getReturnAt().toLocalDate());
     }
 
     @Test

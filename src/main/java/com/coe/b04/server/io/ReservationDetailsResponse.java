@@ -3,20 +3,22 @@ package com.coe.b04.server.io;
 import com.coe.b04.server.model.CarProvider;
 import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.model.Hotel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * GET /reservations/{reservationNumber}/details - wie ReservationResponse,
- * zusaetzlich die vollen Angebotsinhalte, aufgeloest ueber die Mock-APIs:
+ * GET /reservation/details - wie ReservationResponse, zusaetzlich die
+ * vollen Angebotsinhalte, aufgeloest ueber die Mock-APIs:
  *  - flight.outbound / flight.return : vollstaendige Fluege
  *  - hotel                           : Hotel, gefiltert auf das reservierte Zimmer
  *  - car                             : Provider, gefiltert auf das reservierte Car
- * Nicht reservierte Leistungen sind null (stabile Form fuer das Frontend).
+ * Nicht reservierte Leistungen werden weggelassen (NON_NULL).
  */
 @Data
 @NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ReservationDetailsResponse extends ReservationResponse {
 
     private FlightDetails flight;
@@ -32,7 +34,7 @@ public class ReservationDetailsResponse extends ReservationResponse {
         details.setExpiresAt(base.getExpiresAt());
         details.setExpiresInSeconds(base.getExpiresInSeconds());
         details.setTrip(base.getTrip());
-        details.setServices(base.getServices());
+        details.setItems(base.getItems());
         details.setPrice(base.getPrice());
         details.setFlight(flight);
         details.setHotel(hotel);

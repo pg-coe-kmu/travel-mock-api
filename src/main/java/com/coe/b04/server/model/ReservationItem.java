@@ -7,13 +7,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Eine reservierte Leistung, 1:1 zur Tabelle reservation_services.
- * Welche Felder gefuellt sind, haengt vom serviceType ab
- * (DB-Constraints chk_services_*_fields erzwingen das gleiche).
+ * Generische Leistung einer Reservation, 1:1 zur Tabelle reservation_items.
+ * Enthaelt NUR gemeinsame Felder; service-spezifische Daten (inkl. der
+ * externen Mock-API-IDs) liegen in genau einer der Detailtabellen und
+ * damit in genau einem der Detailfelder (flight | hotel | car).
  */
 @Data
 @Builder
@@ -22,20 +22,10 @@ import java.util.UUID;
 public class ReservationItem {
 
     private UUID id;
-    private ServiceType serviceType;
-    private String serviceId;
-    private String providerId;
-
+    private ServiceType itemType;
     private BigDecimal price;
 
-    // nur HOTEL
-    private String roomId;
-    private LocalDate checkIn;
-    private LocalDate checkOut;
-
-    // nur CAR
-    private LocalDate pickupDate;
-    private LocalDate returnDate;
-    private String pickupLocation;
-    private String returnLocation;
+    private ReservationFlightDetail flight;
+    private ReservationHotelDetail hotel;
+    private ReservationCarDetail car;
 }
