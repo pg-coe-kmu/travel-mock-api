@@ -394,6 +394,18 @@ class ReservationServiceTest {
     }
 
     @Test
+    void createRejectsHotelStayWithEqualDates() {
+        CreateReservationRequest request = CreateReservationRequest.builder()
+                .origin("Frankfurt am Main").destination("Madrid")
+                .departureDate(LocalDate.of(2026, 10, 10)).returnDate(LocalDate.of(2026, 10, 10))
+                .adults(2).currency("EUR")
+                .hotelId("HOT-1").roomId("ROOM-1")
+                .build();
+
+        assertBadRequest(() -> reservationService.create(request));
+    }
+
+    @Test
     void createRejectsRoomIdWithoutHotelAndViceVersa() {
         assertBadRequest(() -> reservationService.create(
                 CreateReservationRequest.builder()

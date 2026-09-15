@@ -160,6 +160,12 @@ public class ReservationService {
         if (request.getReturnDate() != null && request.getReturnDate().isBefore(request.getDepartureDate())) {
             throw badRequest("returnDate must not be before departureDate");
         }
+        // Hotel braucht check_out > check_in (DB-Constraint chk_hotels_dates);
+        // gleiche Daten wuerden sonst erst beim Insert als DB-Fehler auffliegen
+        if (hasHotel && request.getReturnDate() != null
+                && !request.getReturnDate().isAfter(request.getDepartureDate())) {
+            throw badRequest("hotel stay requires returnDate after departureDate");
+        }
     }
 
     private Flight requireFlight(String flightId, CreateReservationRequest request) {

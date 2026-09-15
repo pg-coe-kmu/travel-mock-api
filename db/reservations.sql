@@ -19,11 +19,7 @@
 --     (RES-YYYYMMDD-XXXXXX) und ist per UNIQUE-Constraint kollisionssicher.
 --   * Ablauf: 30 Minuten (expires_at), lazy geprueft bei Zugriff.
 --
--- Migration: entfernt das alte Modell (reservation_services)
 -- ============================================================
-
-drop table if exists reservation_services cascade;
-drop table if exists reservations cascade;
 
 create table reservations (
     id                 uuid primary key default gen_random_uuid(),
