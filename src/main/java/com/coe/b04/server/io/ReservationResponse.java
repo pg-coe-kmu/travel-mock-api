@@ -2,19 +2,25 @@ package com.coe.b04.server.io;
 
 import com.coe.b04.server.enums.ReservationStatus;
 import com.coe.b04.server.enums.ServiceType;
+import com.coe.b04.server.model.ReservationCarDetail;
+import com.coe.b04.server.model.ReservationFlightDetail;
+import com.coe.b04.server.model.ReservationHotelDetail;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * GET /reservations/{reservationNumber} - Snapshot-Daten aus der DB,
- * ohne die vollen Hotel-/Flug-/Car-Inhalte (dafuer gibt es /details).
+ * GET /reservation/snapshot - Snapshot-Daten aus der DB.
+ * Neue flexible Struktur: generische items, jedes mit type + price und
+ * genau einem Detailobjekt (flight | hotel | car). Keine fachfremden
+ * null-Felder (NON_NULL). Keine globalen Reisedaten im trip - die
+ * Zeitraeume liegen in den Detailobjekten der Items.
  */
 @Data
 @Builder
@@ -29,7 +35,7 @@ public class ReservationResponse {
     private long expiresInSeconds;
 
     private Trip trip;
-    private List<ServiceItemResponse> services;
+    private List<ItemResponse> items;
     private Price price;
 
     @Data
@@ -39,8 +45,6 @@ public class ReservationResponse {
     public static class Trip {
         private String origin;
         private String destination;
-        private LocalDate departureDate;
-        private LocalDate returnDate;
         private int adults;
         private int children;
         private int infants;
@@ -50,22 +54,13 @@ public class ReservationResponse {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class ServiceItemResponse {
-        private ServiceType serviceType;
-        private String serviceId;
-        private String providerId;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ItemResponse {
+        private ServiceType type;
         private BigDecimal price;
-
-        // nur HOTEL
-        private String roomId;
-        private LocalDate checkIn;
-        private LocalDate checkOut;
-
-        // nur CAR
-        private LocalDate pickupDate;
-        private LocalDate returnDate;
-        private String pickupLocation;
-        private String returnLocation;
+        private ReservationFlightDetail flight;
+        private ReservationHotelDetail hotel;
+        private ReservationCarDetail car;
     }
 
     @Data
@@ -75,9 +70,5 @@ public class ReservationResponse {
     public static class Price {
         private BigDecimal totalPrice;
         private String currency;
-        // null = Leistung nicht Teil der Reservation
-        private BigDecimal flightPrice;
-        private BigDecimal hotelPrice;
-        private BigDecimal carPrice;
     }
 }

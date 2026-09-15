@@ -1,7 +1,6 @@
 package com.coe.b04.server.controller;
 
 import com.coe.b04.server.enums.ReservationStatus;
-import com.coe.b04.server.io.ReservationDetailsResponse;
 import com.coe.b04.server.io.ReservationResponse;
 import com.coe.b04.server.service.ReservationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,7 +35,7 @@ class ReservationControllerTest {
                 .status(ReservationStatus.PENDING)
                 .build());
 
-        mockMvc.perform(post("/reservations")
+        mockMvc.perform(post("/reservation/create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"origin":"Frankfurt am Main","destination":"Madrid",
@@ -44,14 +43,14 @@ class ReservationControllerTest {
                                  "hotelId":"HOT-1001","roomId":"ROOM-102","currency":"EUR"}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/reservations/RES-20260914-AB12CD"))
+                .andExpect(header().string("Location", "/reservation/snapshot?reservationNumber=RES-20260914-AB12CD"))
                 .andExpect(jsonPath("$.reservationNumber").value("RES-20260914-AB12CD"))
                 .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
     @Test
     void createReturns400WhenBodyInvalid() throws Exception {
-        mockMvc.perform(post("/reservations")
+        mockMvc.perform(post("/reservation/create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
@@ -64,7 +63,7 @@ class ReservationControllerTest {
         when(reservationService.create(any()))
                 .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one of flightId, hotelId or carId is required"));
 
-        mockMvc.perform(post("/reservations")
+        mockMvc.perform(post("/reservation/create")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"origin":"Frankfurt am Main","destination":"Madrid",
@@ -80,10 +79,19 @@ class ReservationControllerTest {
                 .status(ReservationStatus.PENDING)
                 .build());
 
-        mockMvc.perform(get("/reservations/RES-X"))
+        mockMvc.perform(get("/reservation/snapshot")
+                        .param("reservationNumber", "RES-X"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reservationNumber").value("RES-X"))
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void getReturns400WhenReservationNumberMissing() throws Exception {
+        mockMvc.perform(get("/reservation/snapshot"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reservationService);
     }
 
     @Test
@@ -91,20 +99,9 @@ class ReservationControllerTest {
         when(reservationService.getByNumber("RES-UNKNOWN"))
                 .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "not found"));
 
-        mockMvc.perform(get("/reservations/RES-UNKNOWN"))
+        mockMvc.perform(get("/reservation/snapshot")
+                        .param("reservationNumber", "RES-UNKNOWN"))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void detailsReturns200() throws Exception {
-        ReservationDetailsResponse details = new ReservationDetailsResponse();
-        details.setReservationNumber("RES-X");
-        details.setStatus(ReservationStatus.PENDING);
-        when(reservationService.getDetails("RES-X")).thenReturn(details);
-
-        mockMvc.perform(get("/reservations/RES-X/details"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.reservationNumber").value("RES-X"));
     }
 
     @Test
@@ -114,9 +111,21 @@ class ReservationControllerTest {
                 .status(ReservationStatus.CANCELLED)
                 .build());
 
-        mockMvc.perform(post("/reservations/RES-X/cancel"))
+        mockMvc.perform(post("/reservation/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"RES-X\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void cancelReturns400WhenBodyInvalid() throws Exception {
+        mockMvc.perform(post("/reservation/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(reservationService);
     }
 
     @Test
@@ -124,7 +133,9 @@ class ReservationControllerTest {
         when(reservationService.cancel("RES-X"))
                 .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Reservation cannot be cancelled"));
 
-        mockMvc.perform(post("/reservations/RES-X/cancel"))
+        mockMvc.perform(post("/reservation/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"RES-X\"}"))
                 .andExpect(status().isConflict());
     }
 }

@@ -1,9 +1,9 @@
 package com.coe.b04.server.service;
 
+import com.coe.b04.server.enums.Direction;
 import com.coe.b04.server.enums.ReservationStatus;
 import com.coe.b04.server.enums.ServiceType;
 import com.coe.b04.server.io.CreateReservationRequest;
-import com.coe.b04.server.io.ReservationDetailsResponse;
 import com.coe.b04.server.io.ReservationResponse;
 import com.coe.b04.server.model.Car;
 import com.coe.b04.server.model.CarProvider;
@@ -11,6 +11,9 @@ import com.coe.b04.server.model.Flight;
 import com.coe.b04.server.model.Hotel;
 import com.coe.b04.server.model.MaxOccupancy;
 import com.coe.b04.server.model.Reservation;
+import com.coe.b04.server.model.ReservationCarDetail;
+import com.coe.b04.server.model.ReservationFlightDetail;
+import com.coe.b04.server.model.ReservationHotelDetail;
 import com.coe.b04.server.model.ReservationItem;
 import com.coe.b04.server.model.RoomType;
 import com.coe.b04.server.repository.CarRepository;
@@ -25,13 +28,13 @@ import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 @Service
 public class ReservationService {
@@ -61,7 +64,8 @@ public class ReservationService {
     /**
      * Erstellt eine 30-Minuten-Reservation fuer das gewaehlte Angebot.
      * Preise werden aus den aktuellen Mock-Daten geladen, berechnet und
-     * eingefroren (total_price = Summe der Leistungen, App-Validierung).
+     * eingefroren (total_price = Summe der Items, App-Validierung).
+     * Aus dem Request entstehen generische Items + Detaildatensaetze.
      */
     public ReservationResponse create(CreateReservationRequest request) {
         validateCombination(request);
@@ -70,24 +74,24 @@ public class ReservationService {
         BigDecimal totalPrice = BigDecimal.ZERO;
 
         if (request.getFlightId() != null) {
-            Flight flight = requireFlight(request.getFlightId(), request);
-            items.add(flightItem(ServiceType.FLIGHT, flight));
-            totalPrice = totalPrice.add(flight.getPrice());
+            ReservationItem item = flightItem(Direction.OUTBOUND, requireFlight(request.getFlightId(), request));
+            items.add(item);
+            totalPrice = totalPrice.add(item.getPrice());
         }
         if (request.getReturnFlightId() != null) {
-            Flight returnFlight = requireFlight(request.getReturnFlightId(), request);
-            items.add(flightItem(ServiceType.RETURN_FLIGHT, returnFlight));
-            totalPrice = totalPrice.add(returnFlight.getPrice());
+            ReservationItem item = flightItem(Direction.RETURN, requireFlight(request.getReturnFlightId(), request));
+            items.add(item);
+            totalPrice = totalPrice.add(item.getPrice());
         }
         if (request.getHotelId() != null) {
-            ReservationItem hotelItem = hotelItem(requireHotel(request), request);
-            items.add(hotelItem);
-            totalPrice = totalPrice.add(hotelItem.getPrice());
+            ReservationItem item = hotelItem(requireHotel(request), request);
+            items.add(item);
+            totalPrice = totalPrice.add(item.getPrice());
         }
         if (request.getCarId() != null) {
-            ReservationItem carItem = carItem(requireCar(request), request);
-            items.add(carItem);
-            totalPrice = totalPrice.add(carItem.getPrice());
+            ReservationItem item = carItem(requireCar(request), request);
+            items.add(item);
+            totalPrice = totalPrice.add(item.getPrice());
         }
 
         OffsetDateTime createdAt = OffsetDateTime.now();
@@ -96,8 +100,6 @@ public class ReservationService {
                 .status(ReservationStatus.PENDING)
                 .origin(request.getOrigin())
                 .destination(request.getDestination())
-                .departureDate(request.getDepartureDate())
-                .returnDate(request.getReturnDate())
                 .adults(request.getAdults())
                 .children(request.getChildren() == null ? 0 : request.getChildren())
                 .infants(request.getInfants() == null ? 0 : request.getInfants())
@@ -105,7 +107,7 @@ public class ReservationService {
                 .totalPrice(totalPrice)
                 .createdAt(createdAt)
                 .expiresAt(createdAt.plusMinutes(VALIDITY_MINUTES))
-                .services(items)
+                .items(items)
                 .build();
 
         return toResponse(reservationRepository.save(reservation));
@@ -114,35 +116,6 @@ public class ReservationService {
     public ReservationResponse getByNumber(String reservationNumber) {
         Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
         return toResponse(reservation);
-    }
-
-    /**
-     * Wie getByNumber, zusaetzlich die vollen Angebotsinhalte aus den
-     * Mock-APIs. Sind die referenzierten IDs dort nicht mehr vorhanden
-     * (Mock-Daten geaendert), bleibt der jeweilige Block null.
-     */
-    public ReservationDetailsResponse getDetails(String reservationNumber) {
-        Reservation reservation = applyLazyExpiry(findOrThrow(reservationNumber));
-        ReservationResponse base = toResponse(reservation);
-
-        Flight outbound = null;
-        Flight returnFlight = null;
-        Hotel hotel = null;
-        CarProvider car = null;
-        for (ReservationItem item : reservation.getServices()) {
-            switch (item.getServiceType()) {
-                case FLIGHT -> outbound = flightRepository.findById(item.getServiceId());
-                case RETURN_FLIGHT -> returnFlight = flightRepository.findById(item.getServiceId());
-                case HOTEL -> hotel = hotelRepository.findByHotelIdAndRoomId(item.getServiceId(), item.getRoomId());
-                case CAR -> car = carRepository.findByProviderIdAndCarId(item.getProviderId(), item.getServiceId());
-            }
-        }
-
-        ReservationDetailsResponse.FlightDetails flight = (outbound != null || returnFlight != null)
-                ? new ReservationDetailsResponse.FlightDetails(outbound, returnFlight)
-                : null;
-
-        return ReservationDetailsResponse.from(base, flight, hotel, car);
     }
 
     public ReservationResponse cancel(String reservationNumber) {
@@ -187,9 +160,11 @@ public class ReservationService {
         if (request.getReturnDate() != null && request.getReturnDate().isBefore(request.getDepartureDate())) {
             throw badRequest("returnDate must not be before departureDate");
         }
+        // Hotel braucht check_out > check_in (DB-Constraint chk_hotels_dates);
+        // gleiche Daten wuerden sonst erst beim Insert als DB-Fehler auffliegen
         if (hasHotel && request.getReturnDate() != null
-                && request.getReturnDate().isEqual(request.getDepartureDate())) {
-            throw badRequest("returnDate must be after departureDate when a hotel is selected");
+                && !request.getReturnDate().isAfter(request.getDepartureDate())) {
+            throw badRequest("hotel stay requires returnDate after departureDate");
         }
     }
 
@@ -238,11 +213,20 @@ public class ReservationService {
 
     // ---------- Items ----------
 
-    private ReservationItem flightItem(ServiceType type, Flight flight) {
+    private ReservationItem flightItem(Direction direction, Flight flight) {
         return ReservationItem.builder()
-                .serviceType(type)
-                .serviceId(flight.getFlightId())
+                .itemType(ServiceType.FLIGHT)
                 .price(flight.getPrice())
+                .flight(ReservationFlightDetail.builder()
+                        .direction(direction)
+                        .flightId(flight.getFlightId())
+                        .airline(flight.getAirline())
+                        .flightNumber(flight.getFlightNumber())
+                        .departureAirport(flight.getDepartureAirport())
+                        .arrivalAirport(flight.getArrivalAirport())
+                        .departureAt(toUtc(flight.getDepartureTime()))
+                        .arrivalAt(toUtc(flight.getArrivalTime()))
+                        .build())
                 .build();
     }
 
@@ -252,12 +236,16 @@ public class ReservationService {
         LocalDate checkOut = effectiveReturnDate(request);
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
         return ReservationItem.builder()
-                .serviceType(ServiceType.HOTEL)
-                .serviceId(hotel.getHotelId())
-                .roomId(room.getRoomId())
-                .checkIn(checkIn)
-                .checkOut(checkOut)
+                .itemType(ServiceType.HOTEL)
                 .price(room.getPricePerNight().multiply(BigDecimal.valueOf(nights)))
+                .hotel(ReservationHotelDetail.builder()
+                        .hotelId(hotel.getHotelId())
+                        .roomId(room.getRoomId())
+                        .checkIn(checkIn)
+                        .checkOut(checkOut)
+                        .hotelName(hotel.getName())
+                        .roomName(room.getRoomType())
+                        .build())
                 .build();
     }
 
@@ -267,15 +255,22 @@ public class ReservationService {
         LocalDate returnDate = effectiveReturnDate(request);
         long days = ChronoUnit.DAYS.between(pickupDate, returnDate);
         return ReservationItem.builder()
-                .serviceType(ServiceType.CAR)
-                .serviceId(car.getCarId())
-                .providerId(provider.getProviderId())
-                .pickupDate(pickupDate)
-                .returnDate(returnDate)
-                .pickupLocation(car.getLocations().getPickupLocation().getName())
-                .returnLocation(car.getLocations().getReturnLocation().getName())
+                .itemType(ServiceType.CAR)
                 .price(car.getPricing().getPricePerDay().multiply(BigDecimal.valueOf(days)))
+                .car(ReservationCarDetail.builder()
+                        .carId(car.getCarId())
+                        .providerId(provider.getProviderId())
+                        .pickupAt(toUtc(pickupDate.atStartOfDay()))
+                        .returnAt(toUtc(returnDate.atStartOfDay()))
+                        .pickupLocation(car.getLocations().getPickupLocation().getName())
+                        .returnLocation(car.getLocations().getReturnLocation().getName())
+                        .vehicleName(car.getBrand() + " " + car.getModel())
+                        .build())
                 .build();
+    }
+
+    private OffsetDateTime toUtc(LocalDateTime dateTime) {
+        return dateTime == null ? null : dateTime.atOffset(ZoneOffset.UTC);
     }
 
     private LocalDate effectiveReturnDate(CreateReservationRequest request) {
@@ -335,47 +330,23 @@ public class ReservationService {
                 .trip(ReservationResponse.Trip.builder()
                         .origin(reservation.getOrigin())
                         .destination(reservation.getDestination())
-                        .departureDate(reservation.getDepartureDate())
-                        .returnDate(reservation.getReturnDate())
                         .adults(reservation.getAdults())
                         .children(reservation.getChildren())
                         .infants(reservation.getInfants())
                         .build())
-                .services(reservation.getServices().stream()
-                        .map(item -> ReservationResponse.ServiceItemResponse.builder()
-                                .serviceType(item.getServiceType())
-                                .serviceId(item.getServiceId())
-                                .providerId(item.getProviderId())
+                .items(reservation.getItems().stream()
+                        .map(item -> ReservationResponse.ItemResponse.builder()
+                                .type(item.getItemType())
                                 .price(item.getPrice())
-                                .roomId(item.getRoomId())
-                                .checkIn(item.getCheckIn())
-                                .checkOut(item.getCheckOut())
-                                .pickupDate(item.getPickupDate())
-                                .returnDate(item.getReturnDate())
-                                .pickupLocation(item.getPickupLocation())
-                                .returnLocation(item.getReturnLocation())
+                                .flight(item.getFlight())
+                                .hotel(item.getHotel())
+                                .car(item.getCar())
                                 .build())
                         .toList())
                 .price(ReservationResponse.Price.builder()
                         .totalPrice(reservation.getTotalPrice())
                         .currency(reservation.getCurrency())
-                        .flightPrice(sumPrices(reservation, ServiceType.FLIGHT, ServiceType.RETURN_FLIGHT))
-                        .hotelPrice(sumPrices(reservation, ServiceType.HOTEL))
-                        .carPrice(sumPrices(reservation, ServiceType.CAR))
                         .build())
                 .build();
-    }
-
-    private BigDecimal sumPrices(Reservation reservation, ServiceType... types) {
-        List<ServiceType> typeList = Arrays.asList(types);
-        boolean present = reservation.getServices().stream().anyMatch(item -> typeList.contains(item.getServiceType()));
-        if (!present) {
-            return null;
-        }
-        return reservation.getServices().stream()
-                .filter(item -> typeList.contains(item.getServiceType()))
-                .map(ReservationItem::getPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
