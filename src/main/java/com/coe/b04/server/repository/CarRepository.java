@@ -3,24 +3,29 @@ package com.coe.b04.server.repository;
 import com.coe.b04.server.io.CarRequest;
 import com.coe.b04.server.model.Car;
 import com.coe.b04.server.model.CarProvider;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Setter
-@Getter
+/*
+ * Katalogdaten kommen ausschliesslich aus PostgreSQL (CatalogQueryRepository)
+ * - inklusive aktueller Availability. Die Filterlogik laeuft in Java ueber
+ * die DB-geladenen Listen.
+ */
 @Repository
 public class CarRepository {
 
-    private List<CarProvider> providers;
+    private final CatalogQueryRepository catalogQueryRepository;
+
+    public CarRepository(CatalogQueryRepository catalogQueryRepository) {
+        this.catalogQueryRepository = catalogQueryRepository;
+    }
 
     /*
      * Finds the provider by providerId. Returns null if the provider does not exist.
      */
     public CarProvider findByProviderId(String providerId) {
-        return providers.stream()
+        return catalogQueryRepository.findAllProviders().stream()
                 .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
                 .findFirst()
                 .orElse(null);
@@ -31,7 +36,7 @@ public class CarRepository {
      * Returns null if the provider does not exist or does not contain a car with the given carId.
      */
     public CarProvider findByProviderIdAndCarId(String providerId, String carId) {
-        return providers.stream()
+        return catalogQueryRepository.findAllProviders().stream()
                 .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
                 .findFirst()
                 .map(provider -> provider.toBuilder()
@@ -52,7 +57,7 @@ public class CarRepository {
      * Null/empty optional parameters are ignored.
      */
     public List<CarProvider> findByLocationAndOptionals(CarRequest request) {
-        return providers.stream()
+        return catalogQueryRepository.findAllProviders().stream()
                 .filter(provider -> request.getProviderName() == null
                         || provider.getProviderName().equalsIgnoreCase(request.getProviderName()))
                 .filter(provider -> request.getMinRating() == null

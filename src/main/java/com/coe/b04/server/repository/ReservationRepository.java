@@ -3,6 +3,7 @@ package com.coe.b04.server.repository;
 import com.coe.b04.server.enums.Direction;
 import com.coe.b04.server.enums.ReservationStatus;
 import com.coe.b04.server.enums.ServiceType;
+import com.coe.b04.server.exception.AvailabilityInsufficientException;
 import com.coe.b04.server.model.Reservation;
 import com.coe.b04.server.model.ReservationCarDetail;
 import com.coe.b04.server.model.ReservationFlightDetail;
@@ -82,9 +83,18 @@ public class ReservationRepository {
             item.setId(itemId);
 
             switch (item.getItemType()) {
-                case FLIGHT -> insertFlight(item);
-                case HOTEL -> insertHotel(item);
-                case CAR -> insertCar(item);
+                case FLIGHT -> {
+                    insertFlight(item);
+                    holdAvailability(item.getId(), "flights", "available_seats", item.getFlight().getFlightId());
+                }
+                case HOTEL -> {
+                    insertHotel(item);
+                    holdAvailability(item.getId(), "room_types", "available_rooms", item.getHotel().getRoomId());
+                }
+                case CAR -> {
+                    insertCar(item);
+                    holdAvailability(item.getId(), "cars", "available_vehicles", item.getCar().getCarId());
+                }
             }
         }
         return reservation;
@@ -271,19 +281,24 @@ public class ReservationRepository {
     }
 
     /**
-     * Atomarer Statuswechsel fuer die Lazy-Expiry - wirkt nur, solange
-     * die Reservation noch PENDING ist. Rueckgabe false = kein Row getroffen.
+     * Atomarer Statuswechsel fuer die Lazy-Expiry: setzt PENDING -> EXPIRED
+     * und gibt die gehaltene Availability in derselben Transaktion frei.
+     * Rueckgabe false = kein Row getroffen (Reservation nicht mehr PENDING).
      */
-    public boolean updateStatus(UUID id, ReservationStatus status) {
+    @Transactional
+    public boolean expireAndRelease(UUID id) {
         int rows = jdbcClient.sql("""
                         update reservations
-                        set status = ?
+                        set status = 'EXPIRED'
                         where id = ? and status = 'PENDING'
                         """)
-                .param(status.name())
                 .param(id)
                 .update();
-        return rows > 0;
+        if (rows == 0) {
+            return false;
+        }
+        releaseAvailability(id);
+        return true;
     }
 
     /**
@@ -291,7 +306,9 @@ public class ReservationRepository {
      * noch PENDING UND nicht abgelaufen ist (App-Uhr und DB-Uhr koennen
      * driften, expires_at entscheidet die DB). Rueckgabe false = verlor
      * gegen einen concurrenten Cancel/Expiry oder bereits abgelaufen.
+     * Die Availability wird nur beim gewinnenden Uebergang freigegeben.
      */
+    @Transactional
     public boolean cancel(UUID id, OffsetDateTime cancelledAt) {
         int rows = jdbcClient.sql("""
                         update reservations
@@ -302,7 +319,87 @@ public class ReservationRepository {
                 .param(cancelledAt)
                 .param(id)
                 .update();
-        return rows > 0;
+        if (rows == 0) {
+            return false;
+        }
+        releaseAvailability(id);
+        return true;
+    }
+
+    /**
+     * Dekrementiert die Katalog-Availability atomar (0 Zeilen = Bestand
+     * nicht ausreichend -> Exception -> Rollback der gesamten Reservation)
+     * und legt den Hold fuer die spaetere Rueckgabe an. Tabellen-/Spalten-
+     * namen sind Compile-Zeit-Konstanten aus der eigenen Item-Typ-Map.
+     */
+    private void holdAvailability(UUID reservationItemId, String catalogTable,
+                                  String availabilityColumn, String externalId) {
+        int rows = jdbcClient.sql("update " + catalogTable
+                        + " set " + availabilityColumn + " = " + availabilityColumn + " - 1"
+                        + " where external_id = ? and " + availabilityColumn + " >= 1")
+                .param(externalId)
+                .update();
+        if (rows == 0) {
+            throw new AvailabilityInsufficientException(catalogTable, externalId);
+        }
+        jdbcClient.sql("""
+                        insert into reservation_availability (reservation_item_id, catalog_table, external_id)
+                        values (?, ?, ?)
+                        """)
+                .param(reservationItemId)
+                .param(catalogTable)
+                .param(externalId)
+                .update();
+    }
+
+    /**
+     * Gibt die Availability aller unrestored Holds der Reservation zurueck.
+     * Jeder Hold wird erst per Claim (`where not restored`) beansprucht -
+     * dadurch kann eine Rueckgabe auch bei konkurrierenden Laeufen nur
+     * genau einmal wirken.
+     */
+    private void releaseAvailability(UUID reservationId) {
+        List<HoldRow> holds = jdbcClient.sql("""
+                        select a.reservation_item_id, a.catalog_table, a.external_id
+                        from reservation_availability a
+                        join reservation_items i on i.id = a.reservation_item_id
+                        where i.reservation_id = ? and not a.restored
+                        """)
+                .param(reservationId)
+                .query((rs, rowNum) -> new HoldRow(
+                        rs.getObject("reservation_item_id", UUID.class),
+                        rs.getString("catalog_table"),
+                        rs.getString("external_id")))
+                .list();
+
+        for (HoldRow hold : holds) {
+            int claimed = jdbcClient.sql("""
+                            update reservation_availability
+                            set restored = true, restored_at = now()
+                            where reservation_item_id = ? and not restored
+                            """)
+                    .param(hold.itemId())
+                    .update();
+            if (claimed == 0) {
+                continue; // bereits von einem anderen Lauf freigegeben
+            }
+            incrementCatalog(hold);
+        }
+    }
+
+    private void incrementCatalog(HoldRow hold) {
+        switch (hold.catalogTable()) {
+            case "flights" -> jdbcClient.sql(
+                            "update flights set available_seats = available_seats + 1 where external_id = ?")
+                    .param(hold.externalId()).update();
+            case "room_types" -> jdbcClient.sql(
+                            "update room_types set available_rooms = available_rooms + 1 where external_id = ?")
+                    .param(hold.externalId()).update();
+            case "cars" -> jdbcClient.sql(
+                            "update cars set available_vehicles = available_vehicles + 1 where external_id = ?")
+                    .param(hold.externalId()).update();
+            default -> throw new IllegalStateException("Unknown catalog table: " + hold.catalogTable());
+        }
     }
 
     private record FlightRow(UUID itemId, ReservationFlightDetail detail) {
@@ -312,5 +409,8 @@ public class ReservationRepository {
     }
 
     private record CarRow(UUID itemId, ReservationCarDetail detail) {
+    }
+
+    private record HoldRow(UUID itemId, String catalogTable, String externalId) {
     }
 }

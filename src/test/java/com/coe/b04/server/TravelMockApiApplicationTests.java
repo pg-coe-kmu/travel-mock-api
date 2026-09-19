@@ -21,9 +21,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  *   HTTP request -> Controller -> Service -> Repository -> JSON response
  *
- * The real remote profile is active, so the mock data is loaded from the
- * Supabase S3 bucket (credentials via .env or SUPABASE_* environment
- * variables), and the search results asserted below come from that data.
+ * The real remote profile is active, so the catalog is read from Supabase
+ * PostgreSQL (seeded from the S3/JSON mock data by CatalogSeeder; credentials
+ * via .env or SUPABASE_* environment variables), and the search results
+ * asserted below come from that data.
  *
  * Covered end-to-end:
  *  - application context starts and mock data loads (contextLoads)

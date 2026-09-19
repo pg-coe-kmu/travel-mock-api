@@ -19,6 +19,7 @@ import com.coe.b04.server.model.RoomType;
 import com.coe.b04.server.repository.CarRepository;
 import com.coe.b04.server.repository.FlightRepository;
 import com.coe.b04.server.repository.HotelRepository;
+import com.coe.b04.server.exception.AvailabilityInsufficientException;
 import com.coe.b04.server.repository.ReservationRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -110,7 +111,20 @@ public class ReservationService {
                 .items(items)
                 .build();
 
-        return toResponse(reservationRepository.save(reservation));
+        return toResponse(saveWithAvailability(reservation));
+    }
+
+    /**
+     * Speichert die Reservation inkl. Availability-Dekrement. Reicht der
+     * Bestand nicht, rollt das Repository die ganze Reservation zurueck
+     * (AvailabilityInsufficientException) -> HTTP 409.
+     */
+    private Reservation saveWithAvailability(Reservation reservation) {
+        try {
+            return reservationRepository.save(reservation);
+        } catch (AvailabilityInsufficientException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
+        }
     }
 
     public ReservationResponse getByNumber(String reservationNumber) {
@@ -301,14 +315,16 @@ public class ReservationService {
     }
 
     /**
-     * Setzt abgelaufene PENDING-Reservations lazy auf EXPIRED.
-     * Verliert der bedingte UPDATE gegen einen concurrenten Cancel,
-     * wird der in der DB gewonnene Status neu geladen.
+     * Setzt abgelaufene PENDING-Reservations lazy auf EXPIRED und gibt
+     * die gehaltene Availability in derselben DB-Transaktion genau einmal
+     * frei (Claim-Guard im Repository). Verliert der bedingte UPDATE gegen
+     * einen concurrenten Cancel, wird der in der DB gewonnene Status neu
+     * geladen - die Availability gibt dann der Gewinner des Rennens frei.
      */
     private Reservation applyLazyExpiry(Reservation reservation) {
         if (reservation.getStatus() == ReservationStatus.PENDING
                 && !reservation.getExpiresAt().isAfter(OffsetDateTime.now())) {
-            if (reservationRepository.updateStatus(reservation.getId(), ReservationStatus.EXPIRED)) {
+            if (reservationRepository.expireAndRelease(reservation.getId())) {
                 reservation.setStatus(ReservationStatus.EXPIRED);
             } else {
                 return findOrThrow(reservation.getReservationNumber());

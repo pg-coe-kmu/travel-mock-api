@@ -27,6 +27,11 @@ jobs:
           SUPABASE_S3_ACCESS_KEY: ${{ secrets.SUPABASE_S3_ACCESS_KEY }}
           SUPABASE_S3_SECRET_KEY: ${{ secrets.SUPABASE_S3_SECRET_KEY }}
           SUPABASE_BUCKET: ${{ secrets.SUPABASE_BUCKET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
   docker-smoke-test:
     runs-on: ubuntu-latest
@@ -45,15 +50,20 @@ jobs:
             -e SUPABASE_S3_ACCESS_KEY="${{ secrets.SUPABASE_S3_ACCESS_KEY }}" \
             -e SUPABASE_S3_SECRET_KEY="${{ secrets.SUPABASE_S3_SECRET_KEY }}" \
             -e SUPABASE_BUCKET="${{ secrets.SUPABASE_BUCKET }}" \
+            -e SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+            -e SUPABASE_DB_HOST="${{ secrets.SUPABASE_DB_HOST }}" \
+            -e SUPABASE_DB_PORT="${{ secrets.SUPABASE_DB_PORT }}" \
+            -e SUPABASE_DB_USER="${{ secrets.SUPABASE_DB_USER }}" \
+            -e SUPABASE_DB_PASSWORD="${{ secrets.SUPABASE_DB_PASSWORD }}" \
             travel-mock-api
           for i in $(seq 1 30); do
             if docker logs travel-mock-remote 2>&1 | grep -q "Started TravelMockRemoteApplication"; then
               echo "Remote application started successfully"
-              if docker logs travel-mock-remote 2>&1 | grep "Data successfully loaded"; then
+              if docker logs travel-mock-remote 2>&1 | grep -q "Catalog-Seeding"; then
                 docker stop travel-mock-remote
                 exit 0
               fi
-              echo "Application started but no data was loaded - full container log:"
+              echo "Application started but catalog seeding did not run - full container log:"
               docker logs travel-mock-remote 2>&1
               docker stop travel-mock-remote
               exit 1

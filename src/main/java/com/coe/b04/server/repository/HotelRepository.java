@@ -3,28 +3,33 @@ package com.coe.b04.server.repository;
 import com.coe.b04.server.io.HotelRequest;
 import com.coe.b04.server.model.Hotel;
 import com.coe.b04.server.model.RoomType;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Setter
-@Getter
+/*
+ * Katalogdaten kommen ausschliesslich aus PostgreSQL (CatalogQueryRepository)
+ * - inklusive aktueller Availability. Die Filterlogik laeuft in Java ueber
+ * die DB-geladenen Listen.
+ */
 @Repository
 public class HotelRepository {
 
-    private List<Hotel> hotels;
+    private final CatalogQueryRepository catalogQueryRepository;
+
+    public HotelRepository(CatalogQueryRepository catalogQueryRepository) {
+        this.catalogQueryRepository = catalogQueryRepository;
+    }
 
     public List<Hotel> findAll() {
-        return hotels;
+        return catalogQueryRepository.findAllHotels();
     }
 
     /*
      * Finds the hotel by hotelId. Returns null if the hotel does not exist.
      */
     public Hotel findById(String hotelId) {
-        return hotels.stream()
+        return catalogQueryRepository.findAllHotels().stream()
                 .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
                 .findFirst()
                 .orElse(null);
@@ -35,7 +40,7 @@ public class HotelRepository {
      * Returns null if the hotel does not exist or does not contain a room with the given roomId.
      */
     public Hotel findByHotelIdAndRoomId(String hotelId, String roomId) {
-        return hotels.stream()
+        return catalogQueryRepository.findAllHotels().stream()
                 .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
                 .findFirst()
                 .map(hotel -> hotel.toBuilder()
@@ -55,7 +60,7 @@ public class HotelRepository {
      * Null/empty optional parameters are ignored.
      */
     public List<Hotel> findByCityAndOptionals(HotelRequest request) {
-        return hotels.stream()
+        return catalogQueryRepository.findAllHotels().stream()
                 .filter(hotel -> hotel.getCity().equalsIgnoreCase(request.getDestination()))
                 .filter(hotel -> request.getStars() == null || hotel.getStars() == request.getStars())
                 .filter(hotel -> request.getMinRating() == null
