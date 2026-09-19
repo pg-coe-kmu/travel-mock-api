@@ -1,28 +1,15 @@
 package com.coe.b04.server.seeder;
 
-import com.coe.b04.server.TravelMockLocalApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,46 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Erwartete Anzahl je Tabelle wird aus data/*.json berechnet, nicht
  * hartkodiert - die Tests bleiben bei Datenpflege gruen.
  */
-@Testcontainers
-@SpringBootTest(classes = TravelMockLocalApplication.class)
-@AutoConfigureMockMvc
-@ActiveProfiles("local")
-class CatalogSeederIntegrationTest {
-
-    @Container
-    static final PostgreSQLContainer postgres =
-            new PostgreSQLContainer("postgres:16-alpine");
-
-    @DynamicPropertySource
-    static void dbProperties(DynamicPropertyRegistry registry) throws Exception {
-        registry.add("supabase.db.host", postgres::getHost);
-        registry.add("supabase.db.port", () -> postgres.getMappedPort(5432));
-        registry.add("supabase.db.user", postgres::getUsername);
-        registry.add("supabase.db.password", postgres::getPassword);
-        applyCatalogSchema();
-    }
-
-    /*
-     * Legt das Katalog-Schema (db/catalog.sql) im Container an. Guard gegen
-     * erneutes Anlegen bei wiederverwendetem Spring-Context/-Container.
-     * Die App verbindet sich auf die Datenbank "postgres" (DataSourceConfig) -
-     * das Schema muss dort liegen, nicht in der Container-Default-DB "test".
-     */
-    private static void applyCatalogSchema() throws Exception {
-        String appJdbcUrl = "jdbc:postgresql://" + postgres.getHost() + ":"
-                + postgres.getMappedPort(5432) + "/postgres";
-        try (Connection connection = DriverManager.getConnection(
-                appJdbcUrl, postgres.getUsername(), postgres.getPassword());
-             Statement statement = connection.createStatement()) {
-            try (ResultSet rs = statement.executeQuery("select to_regclass('public.hotels')")) {
-                rs.next();
-                if (rs.getString(1) != null) {
-                    return;
-                }
-            }
-            statement.execute(Files.readString(Path.of("db", "catalog.sql")));
-        }
-    }
+class CatalogSeederIntegrationTest extends PostgresIntegrationTestBase {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;

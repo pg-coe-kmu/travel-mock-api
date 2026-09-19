@@ -148,3 +148,36 @@ create table reservation_cars (
 
     constraint chk_cars_times check (return_at >= pickup_at)
 );
+
+-- ------------------------------------------------------------
+-- Availability-Holds: eine Zeile pro reserviertem Katalog-Item.
+--
+-- Beim Anlegen der Reservation wird die Katalog-Availability
+-- (flights.available_seats, room_types.available_rooms,
+-- cars.available_vehicles) atomar um 1 dekrementiert; schlaegt das
+-- fehl, rollt die ganze Reservation zurueck.
+--
+-- Rueckgabe: genau einmal, nur beim gewinnenden Statuswechsel
+-- PENDING -> EXPIRED (30-Minuten-Ablauf) bzw. PENDING -> CANCELLED.
+-- Der Claim (`update ... where not restored`) verhindert doppelte
+-- Rueckgabe auch bei konkurrierenden Laeufen. Bezahlte /
+-- weiterverarbeitete Reservationen sind nicht mehr PENDING und
+-- geben ihre Availability daher nie zurueck.
+--
+-- extern_id zeigt auf die Katalogzeile (bewusst ohne FK: die
+-- Reservationstabellen referenzieren den Katalog nur per Text-ID).
+-- ------------------------------------------------------------
+create table reservation_availability (
+    reservation_item_id uuid primary key
+                   constraint fk_availability_item
+                   references reservation_items (id) on delete cascade,
+
+    catalog_table      text not null
+                   constraint chk_availability_catalog
+                   check (catalog_table in ('flights', 'room_types', 'cars')),
+
+    external_id        text not null,
+
+    restored           boolean not null default false,
+    restored_at        timestamptz
+);

@@ -22,6 +22,7 @@ import com.coe.b04.server.model.RoomType;
 import com.coe.b04.server.repository.CarRepository;
 import com.coe.b04.server.repository.FlightRepository;
 import com.coe.b04.server.repository.HotelRepository;
+import com.coe.b04.server.exception.AvailabilityInsufficientException;
 import com.coe.b04.server.repository.ReservationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -494,6 +495,21 @@ class ReservationServiceTest {
         assertNotEquals("RES-COLLISION", response.getReservationNumber());
     }
 
+    @Test
+    void createMapsInsufficientAvailabilityTo409() {
+        stubFullOffer();
+        // Das Repository hat beim Availability-Dekrement nicht genug Bestand
+        // gefunden und die Reservation komplett zurueckgerollt.
+        doThrow(new AvailabilityInsufficientException("flights", "FL-1"))
+                .when(reservationRepository).save(any());
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> reservationService.create(fullRequest()));
+
+        assertEquals(HttpStatus.CONFLICT, e.getStatusCode());
+        assertTrue(e.getReason().contains("FL-1"));
+    }
+
     // ---------- get ----------
 
     @Test
@@ -573,12 +589,12 @@ class ReservationServiceTest {
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().minusMinutes(1));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
-        when(reservationRepository.updateStatus(any(), any())).thenReturn(true);
+        when(reservationRepository.expireAndRelease(any())).thenReturn(true);
 
         ReservationResponse response = reservationService.getByNumber("RES-X");
 
         assertEquals(ReservationStatus.EXPIRED, response.getStatus());
-        verify(reservationRepository).updateStatus(reservation.getId(), ReservationStatus.EXPIRED);
+        verify(reservationRepository).expireAndRelease(reservation.getId());
     }
 
     @Test
@@ -589,7 +605,7 @@ class ReservationServiceTest {
                 OffsetDateTime.now().plusMinutes(30));
         when(reservationRepository.findByReservationNumber("RES-X"))
                 .thenReturn(Optional.of(expired), Optional.of(cancelled));
-        when(reservationRepository.updateStatus(any(), any())).thenReturn(false);
+        when(reservationRepository.expireAndRelease(any())).thenReturn(false);
 
         ReservationResponse response = reservationService.getByNumber("RES-X");
 
@@ -631,7 +647,7 @@ class ReservationServiceTest {
         Reservation reservation = reservation("RES-X", ReservationStatus.PENDING,
                 OffsetDateTime.now().minusMinutes(1));
         when(reservationRepository.findByReservationNumber("RES-X")).thenReturn(Optional.of(reservation));
-        when(reservationRepository.updateStatus(any(), any())).thenReturn(true);
+        when(reservationRepository.expireAndRelease(any())).thenReturn(true);
 
         ResponseStatusException e = assertThrows(ResponseStatusException.class,
                 () -> reservationService.cancel("RES-X"));
