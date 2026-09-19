@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /*
  * Integration tests fuer Reservation x Availability gegen ein echtes
  * PostgreSQL im Testcontainer (Schemata: db/reservations.sql + db/catalog.sql,
- * Katalog via CatalogSeeder befuellt, In-Memory-Katalog via LocalBootstrap).
+ * Katalog via CatalogSeeder befuellt; alle Read-Pfade lesen direkt aus der DB).
  *
  * Covered:
  *  - erfolgreiche Reservation dekrementiert Availability (Flight, Room, Car)

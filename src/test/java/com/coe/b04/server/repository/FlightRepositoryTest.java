@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class FlightRepositoryTest {
 
@@ -22,8 +23,9 @@ class FlightRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        repository = new FlightRepository(mock(CatalogQueryRepository.class));
-        repository.setFlights(List.of(
+        CatalogQueryRepository catalogQueryRepository = mock(CatalogQueryRepository.class);
+        repository = new FlightRepository(catalogQueryRepository);
+        when(catalogQueryRepository.findAllFlights()).thenReturn(List.of(
                 flight("FL-1", "BCN", "FCO", "2026-09-01T08:00:00", TravelClass.ECONOMY, "99.00", 10),
                 flight("FL-2", "BCN", "FCO", "2026-09-02T08:00:00", TravelClass.BUSINESS, "199.00", 2),
                 flight("FL-3", "MAD", "FCO", "2026-09-01T10:00:00", TravelClass.ECONOMY, "120.00", 5)

@@ -3,47 +3,33 @@ package com.coe.b04.server.repository;
 import com.coe.b04.server.io.HotelRequest;
 import com.coe.b04.server.model.Hotel;
 import com.coe.b04.server.model.RoomType;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 /*
- * Katalogdaten kommen bei konfigurierter DB direkt aus PostgreSQL
- * (CatalogQueryRepository) - inklusive aktueller Availability. Ohne
- * DB-Konfiguration dient die vom Bootstrap geladene In-Memory-Liste
- * als Fallback. Die Filterlogik bleibt unveraendert.
+ * Katalogdaten kommen ausschliesslich aus PostgreSQL (CatalogQueryRepository)
+ * - inklusive aktueller Availability. Die Filterlogik laeuft in Java ueber
+ * die DB-geladenen Listen.
  */
-@Setter
-@Getter
 @Repository
 public class HotelRepository {
 
     private final CatalogQueryRepository catalogQueryRepository;
 
-    // Fallback-Daten aus den JSON-Dateien (Bootstrap), nur ohne DB-Konfiguration
-    private List<Hotel> hotels;
-
     public HotelRepository(CatalogQueryRepository catalogQueryRepository) {
         this.catalogQueryRepository = catalogQueryRepository;
     }
 
-    private List<Hotel> currentHotels() {
-        return catalogQueryRepository.isDbConfigured()
-                ? catalogQueryRepository.findAllHotels()
-                : hotels;
-    }
-
     public List<Hotel> findAll() {
-        return currentHotels();
+        return catalogQueryRepository.findAllHotels();
     }
 
     /*
      * Finds the hotel by hotelId. Returns null if the hotel does not exist.
      */
     public Hotel findById(String hotelId) {
-        return currentHotels().stream()
+        return catalogQueryRepository.findAllHotels().stream()
                 .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
                 .findFirst()
                 .orElse(null);
@@ -54,7 +40,7 @@ public class HotelRepository {
      * Returns null if the hotel does not exist or does not contain a room with the given roomId.
      */
     public Hotel findByHotelIdAndRoomId(String hotelId, String roomId) {
-        return currentHotels().stream()
+        return catalogQueryRepository.findAllHotels().stream()
                 .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
                 .findFirst()
                 .map(hotel -> hotel.toBuilder()
@@ -74,7 +60,7 @@ public class HotelRepository {
      * Null/empty optional parameters are ignored.
      */
     public List<Hotel> findByCityAndOptionals(HotelRequest request) {
-        return currentHotels().stream()
+        return catalogQueryRepository.findAllHotels().stream()
                 .filter(hotel -> hotel.getCity().equalsIgnoreCase(request.getDestination()))
                 .filter(hotel -> request.getStars() == null || hotel.getStars() == request.getStars())
                 .filter(hotel -> request.getMinRating() == null

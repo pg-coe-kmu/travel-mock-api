@@ -17,7 +17,6 @@ import com.coe.b04.server.model.MaxOccupancy;
 import com.coe.b04.server.model.ProviderPolicies;
 import com.coe.b04.server.model.Rating;
 import com.coe.b04.server.model.RoomType;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -35,9 +34,8 @@ import java.util.UUID;
  * DB-Read-Seite der Katalogtabellen (Schema: db/catalog.sql): laedt die
  * kompletten Katalogmodelle (Hotels inkl. RoomTypes, Fluege, Provider inkl.
  * Cars/Locations/Extras) aus PostgreSQL. Die Katalog-Repositories (Hotel-,
- * Flight-, Car-, AirportRepository) lesen hierueber und behalten ihre
- * In-Memory-Filterlogik; ohne konfigurierte DB (isDbConfigured() == false)
- * greifen sie weiter auf die Bootstrap-Daten zurueck.
+ * Flight-, Car-, AirportRepository) lesen ausschliesslich hierueber; ihre
+ * Filterlogik laeuft in Java ueber die DB-geladenen Listen.
  *
  * Availability (available_rooms/seats/vehicles) kommt damit direkt aus der
  * DB - Dekremente/Rueckgaben der Reservation sind in allen Read-Pfaden
@@ -47,16 +45,9 @@ import java.util.UUID;
 public class CatalogQueryRepository {
 
     private final JdbcClient jdbcClient;
-    private final boolean dbConfigured;
 
-    public CatalogQueryRepository(JdbcClient jdbcClient,
-                                  @Value("${supabase.db.password:}") String dbPassword) {
+    public CatalogQueryRepository(JdbcClient jdbcClient) {
         this.jdbcClient = jdbcClient;
-        this.dbConfigured = !dbPassword.isBlank();
-    }
-
-    public boolean isDbConfigured() {
-        return dbConfigured;
     }
 
     // ---------- Hotels + RoomTypes ----------

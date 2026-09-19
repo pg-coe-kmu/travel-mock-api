@@ -3,37 +3,29 @@ package com.coe.b04.server.repository;
 import com.coe.b04.server.io.CarRequest;
 import com.coe.b04.server.model.Car;
 import com.coe.b04.server.model.CarProvider;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Setter
-@Getter
+/*
+ * Katalogdaten kommen ausschliesslich aus PostgreSQL (CatalogQueryRepository)
+ * - inklusive aktueller Availability. Die Filterlogik laeuft in Java ueber
+ * die DB-geladenen Listen.
+ */
 @Repository
 public class CarRepository {
 
     private final CatalogQueryRepository catalogQueryRepository;
 
-    // Fallback-Daten aus den JSON-Dateien (Bootstrap), nur ohne DB-Konfiguration
-    private List<CarProvider> providers;
-
     public CarRepository(CatalogQueryRepository catalogQueryRepository) {
         this.catalogQueryRepository = catalogQueryRepository;
-    }
-
-    private List<CarProvider> currentProviders() {
-        return catalogQueryRepository.isDbConfigured()
-                ? catalogQueryRepository.findAllProviders()
-                : providers;
     }
 
     /*
      * Finds the provider by providerId. Returns null if the provider does not exist.
      */
     public CarProvider findByProviderId(String providerId) {
-        return currentProviders().stream()
+        return catalogQueryRepository.findAllProviders().stream()
                 .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
                 .findFirst()
                 .orElse(null);
@@ -44,7 +36,7 @@ public class CarRepository {
      * Returns null if the provider does not exist or does not contain a car with the given carId.
      */
     public CarProvider findByProviderIdAndCarId(String providerId, String carId) {
-        return currentProviders().stream()
+        return catalogQueryRepository.findAllProviders().stream()
                 .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
                 .findFirst()
                 .map(provider -> provider.toBuilder()
@@ -65,7 +57,7 @@ public class CarRepository {
      * Null/empty optional parameters are ignored.
      */
     public List<CarProvider> findByLocationAndOptionals(CarRequest request) {
-        return currentProviders().stream()
+        return catalogQueryRepository.findAllProviders().stream()
                 .filter(provider -> request.getProviderName() == null
                         || provider.getProviderName().equalsIgnoreCase(request.getProviderName()))
                 .filter(provider -> request.getMinRating() == null

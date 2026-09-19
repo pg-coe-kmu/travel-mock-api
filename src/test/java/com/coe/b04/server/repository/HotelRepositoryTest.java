@@ -12,16 +12,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class HotelRepositoryTest {
 
+    private CatalogQueryRepository catalogQueryRepository;
     private HotelRepository repository;
     private Hotel barcelonaHotel;
     private Hotel madridHotel;
 
     @BeforeEach
     void setUp() {
-        repository = new HotelRepository(mock(CatalogQueryRepository.class));
+        catalogQueryRepository = mock(CatalogQueryRepository.class);
+        repository = new HotelRepository(catalogQueryRepository);
 
         barcelonaHotel = Hotel.builder()
                 .hotelId("HOT-1")
@@ -48,7 +51,8 @@ class HotelRepositoryTest {
                         room("ROOM-3", "Deluxe Suite", "All Inclusive", "290.00", 3, 2, true)))
                 .build();
 
-        repository.setHotels(List.of(barcelonaHotel, madridHotel));
+        when(catalogQueryRepository.findAllHotels())
+                .thenReturn(List.of(barcelonaHotel, madridHotel));
     }
 
     private RoomType room(String roomId, String roomType, String board, String pricePerNight,
@@ -165,7 +169,7 @@ class HotelRepositoryTest {
                 HotelRequest.builder().destination("Barcelona").maxPrice(140.0).build());
 
         assertEquals(2, barcelonaHotel.getRoomTypes().size());
-        assertEquals(2, repository.getHotels().getFirst().getRoomTypes().size());
+        assertEquals(2, catalogQueryRepository.findAllHotels().getFirst().getRoomTypes().size());
     }
 
     @Test

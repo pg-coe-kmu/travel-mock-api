@@ -12,16 +12,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class CarRepositoryTest {
 
+    private CatalogQueryRepository catalogQueryRepository;
     private CarRepository repository;
     private CarProvider sixt;
     private CarProvider hertz;
 
     @BeforeEach
     void setUp() {
-        repository = new CarRepository(mock(CatalogQueryRepository.class));
+        catalogQueryRepository = mock(CatalogQueryRepository.class);
+        repository = new CarRepository(catalogQueryRepository);
 
         sixt = CarProvider.builder()
                 .providerId("PROV-SIXT")
@@ -47,7 +50,7 @@ class CarRepositoryTest {
                                 List.of("Unlimited Mileage"))))
                 .build();
 
-        repository.setProviders(List.of(sixt, hertz));
+        when(catalogQueryRepository.findAllProviders()).thenReturn(List.of(sixt, hertz));
     }
 
     private Car car(String carId, String vehicleClass, String city, int seats, int doors,
@@ -162,7 +165,7 @@ class CarRepositoryTest {
                 CarRequest.builder().location("Barcelona").maxPrice(50.0).build());
 
         assertEquals(2, sixt.getCars().size());
-        assertEquals(2, repository.getProviders().getFirst().getCars().size());
+        assertEquals(2, catalogQueryRepository.findAllProviders().getFirst().getCars().size());
     }
 
     @Test
