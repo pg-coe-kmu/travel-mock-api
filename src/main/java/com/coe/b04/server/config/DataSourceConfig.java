@@ -44,7 +44,9 @@ public class DataSourceConfig {
         hikari.setMaximumPoolSize(5);
         hikari.setMinimumIdle(0);
         hikari.setInitializationFailTimeout(-1);
-        hikari.setConnectionTimeout(5000);
+        // Grosszuegiger fuer Kaltstarts/hostende Netze (Render): 5s waren
+        // fuer den ersten Connect zum Pooler zu knapp bemessen.
+        hikari.setConnectionTimeout(15000);
         return new HikariDataSource(hikari);
     }
 }
