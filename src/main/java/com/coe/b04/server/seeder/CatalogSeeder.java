@@ -15,6 +15,7 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -74,9 +75,16 @@ public class CatalogSeeder {
                 log.info("Catalog-Seeding uebersprungen: Katalogtabellen sind bereits befuellt.");
             }
             return result;
-        } catch (DataAccessException e) {
-            log.warn("Catalog-Seeding uebersprungen (DB nicht erreichbar oder Schema fehlt, "
-                    + "siehe db/catalog.sql): {}", e.getMessage());
+        } catch (RuntimeException e) {
+            // Bewusst breit: das Startup-Seeding ist Best-Effort und darf die
+            // App nie killen. Kann u.a. auftreten als:
+            //  - TransactionException/CannotCreateTransactionException (DB
+            //    konfiguriert, aber nicht erreichbar - faellt NICHT unter
+            //    DataAccessException)
+            //  - IllegalStateException (S3/JSON-Quelle nicht konfiguriert)
+            log.warn("Catalog-Seeding uebersprungen ({}: {}). Die App startet trotzdem; "
+                            + "Katalog-Reads schlagen bis zur Behebung fehl.",
+                    e.getClass().getSimpleName(), e.getMessage());
             return null;
         }
     }
@@ -96,9 +104,11 @@ public class CatalogSeeder {
                 catalogRepository.deleteAllCatalogData();
                 return seedIfEmptyInternal();
             });
-        } catch (DataAccessException e) {
+        } catch (DataAccessException | TransactionException e) {
+            // TransactionException/CannotCreateTransactionException: DB nicht
+            // erreichbar beim Transaktionsstart; DataAccessException: SQL-Fehler
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Catalog-Reset fehlgeschlagen (DB nicht erreichbar): " + e.getMessage(), e);
+                    "Catalog-Reset fehlgeschlagen: " + e.getMessage(), e);
         }
     }
 
