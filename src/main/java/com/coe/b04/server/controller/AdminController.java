@@ -4,6 +4,7 @@ import com.coe.b04.server.seeder.CatalogSeeder;
 import com.coe.b04.server.seeder.SeedResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,13 +12,15 @@ import org.springframework.web.bind.annotation.RestController;
 /*
  * Admin-Endpoints fuer die Katalog-/Mock-Daten.
  *
- * SICHERHEITSHINWEIS (Phase 1): Das Projekt besitzt aktuell KEIN
- * Auth-/Security-Konzept (kein spring-security). Der Reset-Endpoint ist
- * daher bewusst als eigene Admin-Stelle vorbereitet, aber ungeschuetzt.
- * Sobald ein Security-Konzept existiert, muss dieser Endpoint als erstes
- * abgesichert werden (Admin-Rolle).
+ * SICHERHEITSHINWEIS: Das Projekt besitzt aktuell KEIN Auth-/Security-Konzept
+ * (kein spring-security). Der destruktive Reset-Endpoint existiert deshalb
+ * nur im local-Profil - die deployte remote-App exponiert ihn gar nicht.
+ * Ein lokaler Start mit .env kann weiterhin die echte Supabase-DB erreichen
+ * (Entwicklungsmaschine, bewusst akzeptiert). Sobald ein Security-Konzept
+ * existiert, den Endpoint stattdessen ueber eine Admin-Rolle absichern.
  */
 @Tag(name = "Admin", description = "Admin operations for catalog mock data")
+@Profile("local")
 @RestController
 public class AdminController {
 
