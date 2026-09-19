@@ -14,13 +14,26 @@ import java.util.List;
 @Repository
 public class CarRepository {
 
+    private final CatalogQueryRepository catalogQueryRepository;
+
+    // Fallback-Daten aus den JSON-Dateien (Bootstrap), nur ohne DB-Konfiguration
     private List<CarProvider> providers;
+
+    public CarRepository(CatalogQueryRepository catalogQueryRepository) {
+        this.catalogQueryRepository = catalogQueryRepository;
+    }
+
+    private List<CarProvider> currentProviders() {
+        return catalogQueryRepository.isDbConfigured()
+                ? catalogQueryRepository.findAllProviders()
+                : providers;
+    }
 
     /*
      * Finds the provider by providerId. Returns null if the provider does not exist.
      */
     public CarProvider findByProviderId(String providerId) {
-        return providers.stream()
+        return currentProviders().stream()
                 .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
                 .findFirst()
                 .orElse(null);
@@ -31,7 +44,7 @@ public class CarRepository {
      * Returns null if the provider does not exist or does not contain a car with the given carId.
      */
     public CarProvider findByProviderIdAndCarId(String providerId, String carId) {
-        return providers.stream()
+        return currentProviders().stream()
                 .filter(provider -> provider.getProviderId().equalsIgnoreCase(providerId))
                 .findFirst()
                 .map(provider -> provider.toBuilder()
@@ -52,7 +65,7 @@ public class CarRepository {
      * Null/empty optional parameters are ignored.
      */
     public List<CarProvider> findByLocationAndOptionals(CarRequest request) {
-        return providers.stream()
+        return currentProviders().stream()
                 .filter(provider -> request.getProviderName() == null
                         || provider.getProviderName().equalsIgnoreCase(request.getProviderName()))
                 .filter(provider -> request.getMinRating() == null

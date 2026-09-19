@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
@@ -210,6 +211,43 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
         assertThat(count("reservation_availability")).isEqualTo(holdsBefore + 1);
     }
 
+    @Test
+    void readEndpointsReflectAvailabilityChanges() throws Exception {
+        setAvailability("room_types", "available_rooms", "ROOM-101", 5);
+        setAvailability("flights", "available_seats", "FL-1001", 18);
+        setAvailability("cars", "available_vehicles", "CAR-1001", 8);
+
+        String number = createReservation(FULL_BODY);
+
+        // Details-Endpoints lesen direkt aus der DB und zeigen das Dekrement
+        mockMvc.perform(get("/details/hotel").param("hotelId", "HOT-1001").param("roomId", "ROOM-101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roomTypes[0].availableRooms").value(4));
+        mockMvc.perform(get("/details/flight").param("flightId", "FL-1001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.availableSeats").value(17));
+        mockMvc.perform(get("/details/car").param("providerId", "PROV-SIXT-01").param("carId", "CAR-1001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cars[0].availableVehicles").value(7));
+
+        // Search zeigt ebenfalls DB-Werte
+        assertThat(searchRoomAvailability("ROOM-101")).isEqualTo(4);
+
+        // Ablauf -> Read-Pfade zeigen die Rueckgabe
+        jdbcTemplate.update("""
+                update reservations
+                set created_at = now() - interval '31 minutes',
+                    expires_at = now() - interval '1 minute'
+                where reservation_number = ?
+                """, number);
+        mockMvc.perform(get("/reservation/snapshot").param("reservationNumber", number))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRED"));
+        mockMvc.perform(get("/details/hotel").param("hotelId", "HOT-1001").param("roomId", "ROOM-101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.roomTypes[0].availableRooms").value(5));
+    }
+
     // ---------- helpers ----------
 
     /*
@@ -226,13 +264,33 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
     }
 
     private String createHotelReservation() throws Exception {
+        return createReservation(HOTEL_BODY);
+    }
+
+    private String createReservation(String body) throws Exception {
         MvcResult result = mockMvc.perform(post("/reservation/create")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(HOTEL_BODY))
+                        .content(body))
                 .andExpect(status().isCreated())
                 .andReturn();
         return new ObjectMapper().readTree(result.getResponse().getContentAsString())
                 .path("reservationNumber").asText();
+    }
+
+    private int searchRoomAvailability(String roomId) throws Exception {
+        MvcResult result = mockMvc.perform(get("/search/hotels")
+                        .param("destination", "Barcelona"))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode root = new ObjectMapper().readTree(result.getResponse().getContentAsString());
+        for (JsonNode hotel : root.path("hotels")) {
+            for (JsonNode room : hotel.path("roomTypes")) {
+                if (roomId.equals(room.path("roomId").asText())) {
+                    return room.path("availableRooms").asInt();
+                }
+            }
+        }
+        throw new AssertionError("Room not found in search result: " + roomId);
     }
 
     private long count(String table) {

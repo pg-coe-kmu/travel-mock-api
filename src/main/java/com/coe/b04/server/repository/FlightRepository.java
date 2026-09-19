@@ -15,10 +15,24 @@ import static java.lang.Integer.sum;
 @Setter
 @Repository
 public class FlightRepository {
+
+    private final CatalogQueryRepository catalogQueryRepository;
+
+    // Fallback-Daten aus den JSON-Dateien (Bootstrap), nur ohne DB-Konfiguration
     private List<Flight> flights;
 
+    public FlightRepository(CatalogQueryRepository catalogQueryRepository) {
+        this.catalogQueryRepository = catalogQueryRepository;
+    }
+
+    private List<Flight> currentFlights() {
+        return catalogQueryRepository.isDbConfigured()
+                ? catalogQueryRepository.findAllFlights()
+                : flights;
+    }
+
     public Flight findById(String flightId) {
-        return flights.stream()
+        return currentFlights().stream()
                 .filter(flight -> flight.getFlightId().equalsIgnoreCase(flightId))
                 .findFirst()
                 .orElse(null);
@@ -52,7 +66,7 @@ public class FlightRepository {
     }
 
     private List<Flight> getFlightsByDefaultParams(String departureAirportCode, String arrivalAirportCode, Integer numberOfAdults, Integer numberOfChildren, TravelClass travelClass, Double maxPrice) {
-        return flights.stream()
+        return currentFlights().stream()
                 .filter(flight -> flight.getDepartureAirport().equalsIgnoreCase(departureAirportCode))
                 .filter(flight -> flight.getArrivalAirport().equalsIgnoreCase(arrivalAirportCode))
                 .filter(flight -> flight.getAvailableSeats() >= sum(numberOfAdults, numberOfChildren))

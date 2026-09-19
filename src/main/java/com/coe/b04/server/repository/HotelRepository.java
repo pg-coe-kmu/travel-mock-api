@@ -9,22 +9,41 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/*
+ * Katalogdaten kommen bei konfigurierter DB direkt aus PostgreSQL
+ * (CatalogQueryRepository) - inklusive aktueller Availability. Ohne
+ * DB-Konfiguration dient die vom Bootstrap geladene In-Memory-Liste
+ * als Fallback. Die Filterlogik bleibt unveraendert.
+ */
 @Setter
 @Getter
 @Repository
 public class HotelRepository {
 
+    private final CatalogQueryRepository catalogQueryRepository;
+
+    // Fallback-Daten aus den JSON-Dateien (Bootstrap), nur ohne DB-Konfiguration
     private List<Hotel> hotels;
 
+    public HotelRepository(CatalogQueryRepository catalogQueryRepository) {
+        this.catalogQueryRepository = catalogQueryRepository;
+    }
+
+    private List<Hotel> currentHotels() {
+        return catalogQueryRepository.isDbConfigured()
+                ? catalogQueryRepository.findAllHotels()
+                : hotels;
+    }
+
     public List<Hotel> findAll() {
-        return hotels;
+        return currentHotels();
     }
 
     /*
      * Finds the hotel by hotelId. Returns null if the hotel does not exist.
      */
     public Hotel findById(String hotelId) {
-        return hotels.stream()
+        return currentHotels().stream()
                 .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
                 .findFirst()
                 .orElse(null);
@@ -35,7 +54,7 @@ public class HotelRepository {
      * Returns null if the hotel does not exist or does not contain a room with the given roomId.
      */
     public Hotel findByHotelIdAndRoomId(String hotelId, String roomId) {
-        return hotels.stream()
+        return currentHotels().stream()
                 .filter(hotel -> hotel.getHotelId().equalsIgnoreCase(hotelId))
                 .findFirst()
                 .map(hotel -> hotel.toBuilder()
@@ -55,7 +74,7 @@ public class HotelRepository {
      * Null/empty optional parameters are ignored.
      */
     public List<Hotel> findByCityAndOptionals(HotelRequest request) {
-        return hotels.stream()
+        return currentHotels().stream()
                 .filter(hotel -> hotel.getCity().equalsIgnoreCase(request.getDestination()))
                 .filter(hotel -> request.getStars() == null || hotel.getStars() == request.getStars())
                 .filter(hotel -> request.getMinRating() == null
