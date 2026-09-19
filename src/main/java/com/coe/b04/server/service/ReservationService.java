@@ -123,7 +123,7 @@ public class ReservationService {
         try {
             return reservationRepository.save(reservation);
         } catch (AvailabilityInsufficientException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
         }
     }
 

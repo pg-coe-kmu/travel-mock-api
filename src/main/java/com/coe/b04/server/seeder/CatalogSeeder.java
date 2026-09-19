@@ -13,8 +13,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -82,12 +84,22 @@ public class CatalogSeeder {
     /**
      * Admin-Reset: loescht die Katalogdaten und seedet neu aus den JSON-Dateien.
      * Betrifft ausschliesslich Katalogtabellen - Reservationsdaten bleiben unberuehrt.
+     * Ohne konfigurierte oder erreichbare DB: 503 statt undurchsichtigem 500.
      */
     public SeedResult reseed() {
-        return transactionTemplate.execute(status -> {
-            catalogRepository.deleteAllCatalogData();
-            return seedIfEmptyInternal();
-        });
+        if (dbPassword.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Supabase-DB nicht konfiguriert (supabase.db.password fehlt)");
+        }
+        try {
+            return transactionTemplate.execute(status -> {
+                catalogRepository.deleteAllCatalogData();
+                return seedIfEmptyInternal();
+            });
+        } catch (DataAccessException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Catalog-Reset fehlgeschlagen (DB nicht erreichbar): " + e.getMessage(), e);
+        }
     }
 
     private SeedResult seedIfEmptyInternal() {
