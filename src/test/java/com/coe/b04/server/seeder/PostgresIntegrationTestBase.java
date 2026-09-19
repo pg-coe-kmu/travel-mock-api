@@ -37,7 +37,12 @@ abstract class PostgresIntegrationTestBase {
             new PostgreSQLContainer("postgres:16-alpine");
 
     static {
-        postgres.start();
+        // Im CI (GitHub Actions setzt CI=true) laufen die Container-Tests
+        // nicht (siehe @DisabledIfEnvironmentVariable auf den Testklassen) -
+        // der Container wird dort auch gar nicht erst gestartet.
+        if (!"true".equals(System.getenv("CI"))) {
+            postgres.start();
+        }
     }
 
     @DynamicPropertySource

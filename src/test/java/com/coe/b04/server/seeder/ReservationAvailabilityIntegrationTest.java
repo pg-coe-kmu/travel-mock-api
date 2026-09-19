@@ -3,6 +3,7 @@ package com.coe.b04.server.seeder;
 import com.coe.b04.server.io.CreateReservationRequest;
 import com.coe.b04.server.service.ReservationService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -44,7 +45,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * Jeder Test setzt die Availability vorab explizit - so bleiben die Tests
  * unabhaengig von der Reihenfolge und vom Admin-Reset des Seeder-Tests.
+ *
+ * Laeuft NICHT im CI (GitHub Actions setzt CI=true): die Testdaten liegen
+ * dort nicht als data/*.json vor; die Container-Tests werden nur lokal
+ * ausgefuehrt.
  */
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase {
 
     private static final String HOTEL_BODY = """

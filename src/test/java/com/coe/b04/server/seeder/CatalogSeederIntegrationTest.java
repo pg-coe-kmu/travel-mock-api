@@ -1,6 +1,7 @@
 package com.coe.b04.server.seeder;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -33,7 +34,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * Erwartete Anzahl je Tabelle wird aus data/*.json berechnet, nicht
  * hartkodiert - die Tests bleiben bei Datenpflege gruen.
+ *
+ * Laeuft NICHT im CI (GitHub Actions setzt CI=true): die Testdaten liegen
+ * dort nicht als data/*.json vor; die Container-Tests werden nur lokal
+ * ausgefuehrt.
  */
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 class CatalogSeederIntegrationTest extends PostgresIntegrationTestBase {
 
     @Autowired
