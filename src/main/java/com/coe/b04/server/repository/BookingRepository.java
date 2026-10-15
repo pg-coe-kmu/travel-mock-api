@@ -1,10 +1,12 @@
 package com.coe.b04.server.repository;
 
+import com.coe.b04.server.model.Booking;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 /*
@@ -57,5 +59,25 @@ public class BookingRepository {
                 .param(bookingNumber)
                 .query(Long.class)
                 .single() > 0;
+    }
+
+    public Optional<Booking> findByBookingNumber(String bookingNumber) {
+        return jdbcClient.sql("""
+                        select b.id, b.booking_number, b.reservation_id,
+                               r.reservation_number, b.paid_at, b.created_at
+                        from bookings b
+                        join reservations r on r.id = b.reservation_id
+                        where b.booking_number = ?
+                        """)
+                .param(bookingNumber)
+                .query((rs, rowNum) -> Booking.builder()
+                        .id(rs.getObject("id", UUID.class))
+                        .bookingNumber(rs.getString("booking_number"))
+                        .reservationId(rs.getObject("reservation_id", UUID.class))
+                        .reservationNumber(rs.getString("reservation_number"))
+                        .paidAt(rs.getObject("paid_at", OffsetDateTime.class))
+                        .createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                        .build())
+                .optional();
     }
 }

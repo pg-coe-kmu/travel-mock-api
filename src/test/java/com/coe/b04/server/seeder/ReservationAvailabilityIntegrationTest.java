@@ -355,6 +355,36 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
         assertThat(count("bookings")).isEqualTo(bookingsBefore + 1);
     }
 
+    @Test
+    void bookingSnapshotReturnsPaidReservationAndUnknownIs404() throws Exception {
+        setAvailability("room_types", "available_rooms", "ROOM-101", 5);
+        String number = createReservation(HOTEL_BODY);
+        String bookingNumber = paySuccessfully(number);
+
+        mockMvc.perform(get("/booking/snapshot").param("bookingNumber", bookingNumber))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bookingNumber").value(bookingNumber))
+                .andExpect(jsonPath("$.reservationNumber").value(number))
+                .andExpect(jsonPath("$.reservation.status").value("PAID"))
+                .andExpect(jsonPath("$.reservation.items.length()").value(1));
+
+        mockMvc.perform(get("/booking/snapshot").param("bookingNumber", "BOOK-UNKNOWN"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(get("/booking/snapshot").param("bookingNumber", " "))
+                .andExpect(status().isBadRequest());
+    }
+
+    private String paySuccessfully(String reservationNumber) throws Exception {
+        MvcResult result = mockMvc.perform(post("/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + reservationNumber + "\",\"success\":true}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return new ObjectMapper().readTree(result.getResponse().getContentAsString())
+                .path("bookingNumber").asText();
+    }
+
     // ---------- helpers ----------
 
     /*
