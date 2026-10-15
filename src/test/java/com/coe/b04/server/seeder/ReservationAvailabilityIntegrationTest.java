@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -252,6 +253,106 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
         mockMvc.perform(get("/details/hotel").param("hotelId", "HOT-1001").param("roomId", "ROOM-101"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roomTypes[0].availableRooms").value(5));
+    }
+
+    @Test
+    void paymentConvertsToBookingAndKeepsAvailabilityReserved() throws Exception {
+        setAvailability("room_types", "available_rooms", "ROOM-101", 5);
+        setAvailability("flights", "available_seats", "FL-1001", 18);
+        setAvailability("cars", "available_vehicles", "CAR-1001", 8);
+        long bookingsBefore = count("bookings");
+        String number = createReservation(FULL_BODY);
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+
+        mockMvc.perform(post("/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + number + "\",\"success\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"))
+                .andExpect(jsonPath("$.bookingNumber", startsWith("BOOK-")))
+                .andExpect(jsonPath("$.reservationNumber").value(number));
+
+        // bezahlt = Availability bleibt reserviert, kein Release
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+        assertThat(restoredHolds(number)).isZero();
+        assertThat(count("bookings")).isEqualTo(bookingsBefore + 1);
+
+        // Auch nach Ablauf der 30 Minuten gibt eine PAID-Reservation nichts frei
+        jdbcTemplate.update("""
+                update reservations
+                set created_at = now() - interval '31 minutes',
+                    expires_at = now() - interval '1 minute'
+                where reservation_number = ?
+                """, number);
+        mockMvc.perform(get("/reservation/snapshot").param("reservationNumber", number))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"));
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+
+        // Cancel einer bezahlten Reservation -> 409, keine Rueckgabe
+        mockMvc.perform(post("/reservation/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + number + "\"}"))
+                .andExpect(status().isConflict());
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+    }
+
+    @Test
+    void paymentAfterExpiryFailsAndReleasesAvailability() throws Exception {
+        setAvailability("room_types", "available_rooms", "ROOM-101", 5);
+        long bookingsBefore = count("bookings");
+        String number = createReservation(HOTEL_BODY);
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+
+        jdbcTemplate.update("""
+                update reservations
+                set created_at = now() - interval '31 minutes',
+                    expires_at = now() - interval '1 minute'
+                where reservation_number = ?
+                """, number);
+
+        mockMvc.perform(post("/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + number + "\",\"success\":true}"))
+                .andExpect(status().isConflict());
+
+        // der Payment-Flow hat die Reservation lazy expiriert und freigegeben
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(5);
+        assertThat(restoredHolds(number)).isEqualTo(1);
+        assertThat(count("bookings")).isEqualTo(bookingsBefore);
+    }
+
+    @Test
+    void failedPaymentLeavesReservationPendingAndDoublePayFails() throws Exception {
+        setAvailability("room_types", "available_rooms", "ROOM-101", 5);
+        long bookingsBefore = count("bookings");
+        String number = createReservation(HOTEL_BODY);
+
+        // success=false -> 402, Reservation bleibt PENDING, Availability bleibt reserviert
+        mockMvc.perform(post("/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + number + "\",\"success\":false}"))
+                .andExpect(status().isPaymentRequired());
+        mockMvc.perform(get("/reservation/snapshot").param("reservationNumber", number))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"));
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+        assertThat(count("bookings")).isEqualTo(bookingsBefore);
+
+        // erfolgreich bezahlen
+        mockMvc.perform(post("/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + number + "\",\"success\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID"));
+        assertThat(count("bookings")).isEqualTo(bookingsBefore + 1);
+
+        // doppelt bezahlen -> 409, keine zweite Booking
+        mockMvc.perform(post("/payment")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reservationNumber\":\"" + number + "\",\"success\":true}"))
+                .andExpect(status().isConflict());
+        assertThat(count("bookings")).isEqualTo(bookingsBefore + 1);
     }
 
     // ---------- helpers ----------

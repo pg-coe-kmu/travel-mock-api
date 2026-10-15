@@ -25,10 +25,11 @@ create table reservations (
     id                 uuid primary key default gen_random_uuid(),
     reservation_number text not null unique,
 
-    -- PENDING | EXPIRED | CANCELLED  (PAID entsteht erst mit dem Booking)
+    -- PENDING | EXPIRED | CANCELLED | PAID (PAID entsteht beim Payment,
+    -- die Booking liegt in db/bookings.sql)
     status             text not null default 'PENDING'
                        constraint chk_reservations_status
-                       check (status in ('PENDING', 'EXPIRED', 'CANCELLED')),
+                       check (status in ('PENDING', 'EXPIRED', 'CANCELLED', 'PAID')),
 
     origin             text not null,
     destination        text not null,
