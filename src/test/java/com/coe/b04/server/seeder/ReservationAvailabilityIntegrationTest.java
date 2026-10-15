@@ -385,6 +385,63 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
                 .path("bookingNumber").asText();
     }
 
+    @Test
+    void cancelBookingRestoresAvailabilityExactlyOnce() throws Exception {
+        // ROOM-101: free cancellation, AFTER_RESERVATION 24h -> immer stornierbar
+        setAvailability("room_types", "available_rooms", "ROOM-101", 5);
+        String number = createReservation(HOTEL_BODY);
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(4);
+        String bookingNumber = paySuccessfully(number);
+
+        mockMvc.perform(post("/booking/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bookingNumber\":\"" + bookingNumber + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cancelledAt").exists())
+                .andExpect(jsonPath("$.reservation.status").value("CANCELLED"));
+
+        // Availability genau einmal zurueckgegeben
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(5);
+        assertThat(restoredHolds(number)).isEqualTo(1);
+
+        // zweite Stornierung -> 409, keine doppelte Rueckgabe
+        mockMvc.perform(post("/booking/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bookingNumber\":\"" + bookingNumber + "\"}"))
+                .andExpect(status().isConflict());
+        assertThat(availability("room_types", "available_rooms", "ROOM-101")).isEqualTo(5);
+    }
+
+    @Test
+    void cancelBookingBlockedByPolicyLeavesAvailabilityReserved() throws Exception {
+        // ROOM-102 wird fuer diesen Test auf "keine freie Stornierung" gesetzt
+        jdbcTemplate.update("update room_types set free_cancellation = false where external_id = 'ROOM-102'");
+        try {
+            setAvailability("room_types", "available_rooms", "ROOM-102", 3);
+            String number = createReservation("""
+                    {"origin":"Frankfurt am Main","destination":"Barcelona",
+                     "departureDate":"2026-10-10","returnDate":"2026-10-17",
+                     "adults":2,"currency":"EUR",
+                     "hotelId":"HOT-1001","roomId":"ROOM-102"}
+                    """);
+            assertThat(availability("room_types", "available_rooms", "ROOM-102")).isEqualTo(2);
+            String bookingNumber = paySuccessfully(number);
+
+            mockMvc.perform(post("/booking/cancel")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"bookingNumber\":\"" + bookingNumber + "\"}"))
+                    .andExpect(status().isConflict());
+
+            // blockiert -> Availability bleibt reserviert, Booking bleibt aktiv
+            assertThat(availability("room_types", "available_rooms", "ROOM-102")).isEqualTo(2);
+            mockMvc.perform(get("/booking/snapshot").param("bookingNumber", bookingNumber))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.reservation.status").value("PAID"));
+        } finally {
+            jdbcTemplate.update("update room_types set free_cancellation = true where external_id = 'ROOM-102'");
+        }
+    }
+
     // ---------- helpers ----------
 
     /*

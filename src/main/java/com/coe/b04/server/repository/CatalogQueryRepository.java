@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /*
@@ -291,6 +292,34 @@ public class CatalogQueryRepository {
                 .query(String.class)
                 .optional()
                 .orElse(null);
+    }
+
+    // ---------- Cancellation-Policies (Booking-Stornierung) ----------
+
+    public Optional<CancellationPolicy> roomCancellationPolicy(String roomId) {
+        return jdbcClient.sql("""
+                        select free_cancellation,
+                               cancellation_deadline_type, cancellation_deadline_value,
+                               cancellation_deadline_unit
+                        from room_types
+                        where external_id = ?
+                        """)
+                .param(roomId)
+                .query((rs, rowNum) -> cancellationPolicy(rs))
+                .optional();
+    }
+
+    public Optional<CancellationPolicy> carCancellationPolicy(String carId) {
+        return jdbcClient.sql("""
+                        select free_cancellation,
+                               cancellation_deadline_type, cancellation_deadline_value,
+                               cancellation_deadline_unit
+                        from cars
+                        where external_id = ?
+                        """)
+                .param(carId)
+                .query((rs, rowNum) -> cancellationPolicy(rs))
+                .optional();
     }
 
     private List<String> toList(ResultSet rs, String column) throws SQLException {

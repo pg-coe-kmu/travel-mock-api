@@ -19,9 +19,11 @@ import java.util.UUID;
 public class BookingRepository {
 
     private final JdbcClient jdbcClient;
+    private final ReservationRepository reservationRepository;
 
-    public BookingRepository(JdbcClient jdbcClient) {
+    public BookingRepository(JdbcClient jdbcClient, ReservationRepository reservationRepository) {
         this.jdbcClient = jdbcClient;
+        this.reservationRepository = reservationRepository;
     }
 
     /**
@@ -64,7 +66,7 @@ public class BookingRepository {
     public Optional<Booking> findByBookingNumber(String bookingNumber) {
         return jdbcClient.sql("""
                         select b.id, b.booking_number, b.reservation_id,
-                               r.reservation_number, b.paid_at, b.created_at
+                               r.reservation_number, b.paid_at, b.created_at, b.cancelled_at
                         from bookings b
                         join reservations r on r.id = b.reservation_id
                         where b.booking_number = ?
@@ -77,7 +79,40 @@ public class BookingRepository {
                         .reservationNumber(rs.getString("reservation_number"))
                         .paidAt(rs.getObject("paid_at", OffsetDateTime.class))
                         .createdAt(rs.getObject("created_at", OffsetDateTime.class))
+                        .cancelledAt(rs.getObject("cancelled_at", OffsetDateTime.class))
                         .build())
                 .optional();
+    }
+
+    /**
+     * Booking-Stornierung, atomar in einer Transaktion:
+     *  - Reservation PAID -> CANCELLED (nur solange PAID)
+     *  - Booking bekommt cancelled_at
+     *  - gehaltene Availability wird genau einmal freigegeben
+     * Rueckgabe false = kein Row getroffen (Reservation nicht mehr PAID).
+     */
+    @Transactional
+    public boolean cancel(UUID reservationId, OffsetDateTime cancelledAt) {
+        int rows = jdbcClient.sql("""
+                        update reservations
+                        set status = 'CANCELLED', cancelled_at = ?
+                        where id = ? and status = 'PAID'
+                        """)
+                .param(cancelledAt)
+                .param(reservationId)
+                .update();
+        if (rows == 0) {
+            return false;
+        }
+        jdbcClient.sql("""
+                        update bookings
+                        set cancelled_at = ?
+                        where reservation_id = ? and cancelled_at is null
+                        """)
+                .param(cancelledAt)
+                .param(reservationId)
+                .update();
+        reservationRepository.releaseAvailability(reservationId);
+        return true;
     }
 }

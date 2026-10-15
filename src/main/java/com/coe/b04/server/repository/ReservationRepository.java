@@ -356,9 +356,10 @@ public class ReservationRepository {
      * Gibt die Availability aller unrestored Holds der Reservation zurueck.
      * Jeder Hold wird erst per Claim (`where not restored`) beansprucht -
      * dadurch kann eine Rueckgabe auch bei konkurrierenden Laeufen nur
-     * genau einmal wirken.
+     * genau einmal wirken. Wird innerhalb der aufrufenden Transaktion
+     * (Expiry, Cancel oder Booking-Stornierung) ausgefuehrt.
      */
-    private void releaseAvailability(UUID reservationId) {
+    public void releaseAvailability(UUID reservationId) {
         List<HoldRow> holds = jdbcClient.sql("""
                         select a.reservation_item_id, a.catalog_table, a.external_id
                         from reservation_availability a
