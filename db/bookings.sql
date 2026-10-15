@@ -12,7 +12,10 @@
 --     Statement, das die Booking anlegt (nur solange die Reservation
 --     laut DB-Uhr noch PENDING und nicht abgelaufen ist).
 --   * Eine PAID-Reservation gibt ihre Availability NIE zurueck:
---     Release passiert nur bei PENDING -> EXPIRED/CANCELLED.
+--     Release passiert nur bei PENDING -> EXPIRED/CANCELLED (Reservation)
+--     bzw. explizit bei der Booking-Stornierung (PAID -> CANCELLED).
+--   * cancelled_at = NULL heisst aktive Booking; gesetzt = storniert
+--     (die zugehoerige Reservation steht dann auf CANCELLED).
 --   * on delete restrict: eine Booking schuetzt ihre Reservation
 --     vor versehentlichem Loeschen.
 --
@@ -27,5 +30,6 @@ create table bookings (
                    references reservations (id) on delete restrict,
 
     paid_at        timestamptz not null default now(),
-    created_at     timestamptz not null default now()
+    created_at     timestamptz not null default now(),
+    cancelled_at   timestamptz
 );

@@ -24,4 +24,5 @@ public class Booking {
     private String reservationNumber;
     private OffsetDateTime paidAt;
     private OffsetDateTime createdAt;
+    private OffsetDateTime cancelledAt;
 }
