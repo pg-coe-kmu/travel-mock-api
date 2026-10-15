@@ -52,6 +52,7 @@ abstract class PostgresIntegrationTestBase {
         registry.add("supabase.db.user", postgres::getUsername);
         registry.add("supabase.db.password", postgres::getPassword);
         applySchema("reservations", "db/reservations.sql");
+        applySchema("bookings", "db/bookings.sql");
         applySchema("hotels", "db/catalog.sql");
     }
 
