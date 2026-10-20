@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -369,7 +370,8 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
                 .andExpect(jsonPath("$.reservation.items.length()").value(1));
 
         mockMvc.perform(get("/booking/snapshot").param("bookingNumber", "BOOK-UNKNOWN"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No booking found for bookingNumber: BOOK-UNKNOWN"));
 
         mockMvc.perform(get("/booking/snapshot").param("bookingNumber", " "))
                 .andExpect(status().isBadRequest());
@@ -430,7 +432,8 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
             mockMvc.perform(post("/booking/cancel")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"bookingNumber\":\"" + bookingNumber + "\"}"))
-                    .andExpect(status().isConflict());
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message", containsString("does not allow free cancellation")));
 
             // blockiert -> Availability bleibt reserviert, Booking bleibt aktiv
             assertThat(availability("room_types", "available_rooms", "ROOM-102")).isEqualTo(2);
