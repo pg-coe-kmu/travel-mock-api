@@ -129,7 +129,12 @@ public class BookingService {
 
     private void checkPolicy(Optional<CancellationPolicy> policy, OffsetDateTime start,
                              String itemLabel, OffsetDateTime now, OffsetDateTime paidAt) {
-        if (policy.isEmpty() || !policy.get().isFreeCancellation()) {
+        // Kein Policy-Eintrag (JSON-cancellationPolicy war null) -> blockiert
+        // nie, genau wie Fluege ohne Policy.
+        if (policy.isEmpty()) {
+            return;
+        }
+        if (!policy.get().isFreeCancellation()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Booking cannot be cancelled: " + itemLabel + " does not allow free cancellation");
         }
