@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -369,7 +370,8 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
                 .andExpect(jsonPath("$.reservation.items.length()").value(1));
 
         mockMvc.perform(get("/booking/snapshot").param("bookingNumber", "BOOK-UNKNOWN"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("No booking found for bookingNumber: BOOK-UNKNOWN"));
 
         mockMvc.perform(get("/booking/snapshot").param("bookingNumber", " "))
                 .andExpect(status().isBadRequest());
@@ -430,7 +432,8 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
             mockMvc.perform(post("/booking/cancel")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"bookingNumber\":\"" + bookingNumber + "\"}"))
-                    .andExpect(status().isConflict());
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message", containsString("does not allow free cancellation")));
 
             // blockiert -> Availability bleibt reserviert, Booking bleibt aktiv
             assertThat(availability("room_types", "available_rooms", "ROOM-102")).isEqualTo(2);
@@ -439,6 +442,48 @@ class ReservationAvailabilityIntegrationTest extends PostgresIntegrationTestBase
                     .andExpect(jsonPath("$.reservation.status").value("PAID"));
         } finally {
             jdbcTemplate.update("update room_types set free_cancellation = true where external_id = 'ROOM-102'");
+        }
+    }
+
+    @Test
+    void cancelBookingSucceedsWhenRoomHasNoPolicy() throws Exception {
+        // Simuliert ROOM-501 (JSON-cancellationPolicy null): free=false ohne
+        // Deadline -> gilt als "keine Policy" und blockiert die Stornierung nicht
+        jdbcTemplate.update("""
+                update room_types
+                set free_cancellation = false,
+                    cancellation_deadline_type = null,
+                    cancellation_deadline_value = null,
+                    cancellation_deadline_unit = null
+                where external_id = 'ROOM-102'
+                """);
+        try {
+            setAvailability("room_types", "available_rooms", "ROOM-102", 3);
+            String number = createReservation("""
+                    {"origin":"Frankfurt am Main","destination":"Barcelona",
+                     "departureDate":"2026-11-10","returnDate":"2026-11-17",
+                     "adults":2,"currency":"EUR",
+                     "hotelId":"HOT-1001","roomId":"ROOM-102"}
+                    """);
+            String bookingNumber = paySuccessfully(number);
+
+            mockMvc.perform(post("/booking/cancel")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"bookingNumber\":\"" + bookingNumber + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.reservation.status").value("CANCELLED"));
+
+            assertThat(availability("room_types", "available_rooms", "ROOM-102")).isEqualTo(3);
+            assertThat(restoredHolds(number)).isEqualTo(1);
+        } finally {
+            jdbcTemplate.update("""
+                    update room_types
+                    set free_cancellation = true,
+                        cancellation_deadline_type = 'BEFORE_CHECK_IN',
+                        cancellation_deadline_value = 24,
+                        cancellation_deadline_unit = 'HOURS'
+                    where external_id = 'ROOM-102'
+                    """);
         }
     }
 

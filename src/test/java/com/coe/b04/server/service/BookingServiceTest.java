@@ -195,6 +195,23 @@ class BookingServiceTest {
     }
 
     @Test
+    void roomWithoutPolicyDoesNotBlockCancellation() {
+        // JSON-cancellationPolicy war null -> Katalog liefert keine Policy ->
+        // Storno ist erlaubt (gleiche Regel wie bei Fluegen)
+        stubBookingAndReservation(booking(null), reservation(ReservationStatus.PAID));
+        when(catalogQueryRepository.roomCancellationPolicy("ROOM-1"))
+                .thenReturn(Optional.empty());
+        when(bookingRepository.cancel(any(), any())).thenReturn(true);
+        when(reservationService.getByNumber("RES-X"))
+                .thenReturn(ReservationResponse.builder().status(ReservationStatus.CANCELLED).build());
+
+        BookingResponse response = bookingService.cancel("BOOK-X");
+
+        assertEquals(ReservationStatus.CANCELLED, response.getReservation().getStatus());
+        verify(bookingRepository).cancel(any(), any());
+    }
+
+    @Test
     void cancelAlreadyCancelledThrows409() {
         stubBookingAndReservation(booking(OffsetDateTime.now().minusMinutes(5)),
                 reservation(ReservationStatus.CANCELLED));
